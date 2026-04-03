@@ -19,12 +19,29 @@ export default function AdminStudentsPage() {
   );
 
   const load = async () => {
-    const [studentsResp, codesResp] = await Promise.all([
+    setFeedback(null);
+    const [studentsResult, codesResult] = await Promise.allSettled([
       adminApi.listStudents(),
       adminApi.listAccessCodes(),
     ]);
-    setStudents(studentsResp as UserProfile[]);
-    setCodes(codesResp as AccessCode[]);
+
+    if (studentsResult.status === "fulfilled") {
+      setStudents(studentsResult.value as UserProfile[]);
+    } else {
+      const msg =
+        studentsResult.reason instanceof Error
+          ? studentsResult.reason.message
+          : "Failed to load students.";
+      setFeedback({ type: "error", message: msg });
+    }
+
+    if (codesResult.status === "fulfilled") {
+      setCodes(codesResult.value as AccessCode[]);
+    } else if (studentsResult.status === "fulfilled") {
+      const msg =
+        codesResult.reason instanceof Error ? codesResult.reason.message : "Failed to load access codes.";
+      setFeedback({ type: "error", message: `Students loaded; access codes failed: ${msg}` });
+    }
   };
 
   useEffect(() => {
