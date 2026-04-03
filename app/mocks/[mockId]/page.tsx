@@ -73,6 +73,8 @@ export default function MockSessionPage() {
   const seconds = timeLeft % 60;
 
   async function onSubmit() {
+    if (!mock || !questions.length) return;
+
     const answers = questions.map((question) => {
       const choice = selected[question.id];
       return {
@@ -84,15 +86,16 @@ export default function MockSessionPage() {
     });
     const correct = answers.filter((item) => item.isCorrect).length;
     const score = Math.round((correct / questions.length) * 100);
+    const mockId = mock.id;
     const response = (await studentApi.createAttempt({
-      mockId: mock.id,
+      mockId,
       mode,
       score,
       totalQuestions: questions.length,
       answers,
     })) as { id: string };
     setSubmitted(true);
-    router.push(`/mocks/${mock.id}/result?attemptId=${response.id}`);
+    router.push(`/mocks/${mockId}/result?attemptId=${response.id}`);
   }
 
   return (
