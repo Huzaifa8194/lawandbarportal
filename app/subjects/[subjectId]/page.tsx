@@ -7,6 +7,7 @@ import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
+import { useAuth } from "../../context/auth-context";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -37,6 +38,7 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
+  const { user } = useAuth();
   const { subjects, books, audios, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
   const relatedBook = books.find((item) => item.subjectId === params.subjectId);
@@ -54,6 +56,7 @@ export default function SubjectWorkspacePage() {
   const [highlightColor, setHighlightColor] = useState<PdfHighlight["color"]>("yellow");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
+  const [pdfToken, setPdfToken] = useState<string | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -66,6 +69,26 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     setSelectedAudioId((prev) => (prev && relatedAudios.some((a) => a.id === prev) ? prev : relatedAudios[0]?.id ?? null));
   }, [relatedAudios]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadToken = async () => {
+      if (!user) {
+        setPdfToken(null);
+        return;
+      }
+      try {
+        const token = await user.getIdToken();
+        if (!cancelled) setPdfToken(token);
+      } catch {
+        if (!cancelled) setPdfToken(null);
+      }
+    };
+    void loadToken();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!relatedBook?.id) {
@@ -175,7 +198,10 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
-  const pdfUrl = relatedBookId ? `/api/student/books/${encodeURIComponent(relatedBookId)}/file` : null;
+  const pdfUrl =
+    relatedBookId && pdfToken
+      ? `/api/student/books/${encodeURIComponent(relatedBookId)}/file?token=${encodeURIComponent(pdfToken)}`
+      : null;
   const pdfDocuments = useMemo(
     () =>
       pdfUrl
