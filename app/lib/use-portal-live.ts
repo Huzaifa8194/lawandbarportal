@@ -21,7 +21,12 @@ import type {
 import { useAuth } from "../context/auth-context";
 import { studentApi } from "@/lib/services/student-api";
 
-export function usePortalLiveData() {
+type PortalLiveOptions = {
+  includeAttempts?: boolean;
+};
+
+export function usePortalLiveData(options?: PortalLiveOptions) {
+  const includeAttempts = options?.includeAttempts ?? true;
   const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -52,7 +57,7 @@ export function usePortalLiveData() {
         setMocks(mocksResp.filter((item) => item.published));
         setVideos(videosResp.filter((item) => item.published));
 
-        if (user) {
+        if (user && includeAttempts) {
           try {
             const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
             if (mounted) setAttempts(attemptsResp);
@@ -70,7 +75,7 @@ export function usePortalLiveData() {
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [user, includeAttempts]);
 
   return { subjects, books, audios, videos, mcqs, mocks, attempts, loading };
 }

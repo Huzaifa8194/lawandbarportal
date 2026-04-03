@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
@@ -35,16 +35,9 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
   );
 }
 
-if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerPort = new Worker(
-    new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url),
-    { type: "module" },
-  );
-}
-
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
-  const { subjects, books, audios, mocks, loading } = usePortalLiveData();
+  const { subjects, books, audios, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
   const relatedBook = books.find((item) => item.subjectId === params.subjectId);
   const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
@@ -60,7 +53,6 @@ export default function SubjectWorkspacePage() {
   const [highlightColor, setHighlightColor] = useState<PdfHighlight["color"]>("yellow");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
-  const [numPages, setNumPages] = useState<number>(1);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -183,6 +175,19 @@ export default function SubjectWorkspacePage() {
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
   const pdfUrl = relatedBook ? `/api/student/books/${encodeURIComponent(relatedBook.id)}/file` : null;
+  const pdfDocuments = useMemo(
+    () =>
+      pdfUrl
+        ? [
+            {
+              uri: pdfUrl,
+              fileType: "pdf",
+              fileName: `${relatedBook?.title || "Study Book"}.pdf`,
+            },
+          ]
+        : [],
+    [pdfUrl, relatedBook?.title],
+  );
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
 
   return (
@@ -425,12 +430,10 @@ export default function SubjectWorkspacePage() {
                   >
                     Prev
                   </button>
-                  <span>
-                    {currentPage}/{Math.max(1, numPages)}
-                  </span>
+                  <span>{currentPage}</span>
                   <button
                     type="button"
-                    onClick={() => setCurrentPage((prev) => Math.min(Math.max(1, numPages), prev + 1))}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
                     className="rounded border border-white/15 px-2 py-1 text-white/80 hover:bg-white/10"
                   >
                     Next
@@ -444,22 +447,20 @@ export default function SubjectWorkspacePage() {
                 <div className="mx-auto max-w-[900px]">
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
                     <div className="flex h-[60vh] min-h-[420px] w-full items-start justify-center overflow-auto rounded-[12px] bg-white p-2 text-slate-900 sm:h-[70vh] sm:p-4">
-                      <Document
-                        file={pdfUrl}
-                        loading={<p className="py-16 text-sm text-slate-500">Loading book...</p>}
-                        error={<p className="py-16 text-sm text-red-600">Unable to load PDF.</p>}
-                        onLoadSuccess={(info) => {
-                          setNumPages(info.numPages || 1);
-                          setCurrentPage((prev) => Math.min(Math.max(1, info.numPages || 1), prev));
-                        }}
-                      >
-                        <Page
-                          pageNumber={Math.max(1, Math.min(numPages, currentPage))}
-                          width={800}
-                          renderTextLayer
-                          renderAnnotationLayer
+                      <div className="h-full w-full overflow-hidden rounded-lg border border-slate-200">
+                        <DocViewer
+                          documents={pdfDocuments}
+                          pluginRenderers={DocViewerRenderers}
+                          config={{
+                            header: {
+                              disableHeader: true,
+                              disableFileName: true,
+                              retainURLParams: false,
+                            },
+                          }}
+                          style={{ height: "100%", width: "100%" }}
                         />
-                      </Document>
+                      </div>
                     </div>
                   </div>
                   <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">

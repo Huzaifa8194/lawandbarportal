@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "react-pdf/dist/Page/AnnotationLayer.css";
 @import "react-pdf/dist/Page/TextLayer.css";
+@import "@cyntler/react-doc-viewer/dist/index.css";
 
 :root {
   --background: #f8f9fa;
