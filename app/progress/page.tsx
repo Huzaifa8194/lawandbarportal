@@ -39,7 +39,7 @@ export default function ProgressPage() {
     return subjects.map((s) => {
       const t = tallies.get(s.id) ?? { name: s.name, correct: 0, total: 0 };
       const pct = t.total > 0 ? Math.round((t.correct / t.total) * 100) : null;
-      return { id: s.id, name: s.name, ...t, pct };
+      return { id: s.id, ...t, pct };
     });
   }, [attempts, subjects, mcqSubjectById]);
 
