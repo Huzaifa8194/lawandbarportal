@@ -5,7 +5,7 @@ import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function SubjectsPage() {
-  const { subjects, books, audios, loading } = usePortalLiveData();
+  const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData();
 
   return (
     <PortalShell
@@ -15,7 +15,9 @@ export default function SubjectsPage() {
       <section className="space-y-4">
         {subjects.map((subject) => {
           const book = books.find((item) => item.subjectId === subject.id);
-          const audio = audios.find((item) => item.subjectId === subject.id);
+          const subjectAudios = audios.filter((item) => item.subjectId === subject.id);
+          const subjectVideos = videos.filter((item) => item.subjectId === subject.id);
+          const subjectMocks = mocks.filter((item) => item.subjectIds.includes(subject.id));
           return (
           <article
             key={subject.id}
@@ -36,25 +38,47 @@ export default function SubjectsPage() {
               </Link>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-semibold text-slate-700">Book Viewer</p>
                 <p className="mt-2 text-sm text-slate-600">{book?.title || "No book uploaded yet."}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={`/subjects/${subject.id}`}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                  >
+                    Read + Study Tools
+                  </Link>
+                </div>
               </section>
 
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">Audio Player</p>
-                <p className="mt-2 text-sm text-slate-600">{audio?.title || "No audio uploaded yet."}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Duration: {audio?.durationSeconds ? `${audio.durationSeconds}s` : "N/A"}
-                </p>
+                <p className="text-sm font-semibold text-slate-700">Audio Lessons ({subjectAudios.length})</p>
+                <div className="mt-2 space-y-2">
+                  {subjectAudios.slice(0, 3).map((audio) => (
+                    <p key={audio.id} className="text-sm text-slate-600">
+                      {audio.title}
+                    </p>
+                  ))}
+                  {!subjectAudios.length ? <p className="text-sm text-slate-600">No audio uploaded yet.</p> : null}
+                </div>
                 <div className="mt-3 flex gap-2">
-                  <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-                    Play
-                  </button>
-                  <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700">
-                    1.5x
-                  </button>
+                  <Link href={`/subjects/${subject.id}`} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
+                    Open all audios
+                  </Link>
+                </div>
+              </section>
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-700">Videos & Mocks</p>
+                <p className="mt-2 text-sm text-slate-600">Videos: {subjectVideos.length}</p>
+                <p className="text-sm text-slate-600">Mocks: {subjectMocks.length}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link href={`/subjects/${subject.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                    Watch videos
+                  </Link>
+                  <Link href="/mocks" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                    Start mock
+                  </Link>
                 </div>
               </section>
             </div>

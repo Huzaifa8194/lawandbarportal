@@ -17,6 +17,7 @@ import type {
   MockExam,
   Subject,
   UserProfile,
+  VideoLesson,
 } from "@/lib/types/admin";
 
 function normalizeDate(value: unknown): string | undefined {
@@ -60,6 +61,11 @@ export async function listBooks(): Promise<Book[]> {
 
 export async function listAudios(): Promise<AudioLesson[]> {
   const rows = await listCollection<AudioLesson>("audios");
+  return rows.map((row) => ({ ...row, updatedAt: normalizeDate(row.updatedAt) }));
+}
+
+export async function listVideos(): Promise<VideoLesson[]> {
+  const rows = await listCollection<VideoLesson>("videos");
   return rows.map((row) => ({ ...row, updatedAt: normalizeDate(row.updatedAt) }));
 }
 

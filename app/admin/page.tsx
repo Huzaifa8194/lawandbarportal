@@ -6,7 +6,8 @@ const adminSections = [
   { href: "/admin/students", title: "Students & Access", text: "Manage activation and access control." },
   { href: "/admin/subjects", title: "Subjects", text: "Control FLK structure and subject ordering." },
   { href: "/admin/books", title: "Books", text: "Upload and assign FLK subject PDFs." },
-  { href: "/admin/audios", title: "Audios", text: "Upload audio and link to books." },
+  { href: "/admin/audios", title: "Audios", text: "Upload multiple audios per subject and link to books." },
+  { href: "/admin/videos", title: "Videos", text: "Upload and publish video lessons for students." },
   { href: "/admin/mcqs", title: "MCQs", text: "Author 5-option questions with explanations." },
   { href: "/admin/mocks", title: "Mock Exams", text: "Group MCQs into exam and practice sets." },
 ];

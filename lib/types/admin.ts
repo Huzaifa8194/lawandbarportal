@@ -44,6 +44,21 @@ export type AudioLesson = {
   updatedAt?: string;
 };
 
+export type VideoLesson = {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  track: FlkTrack;
+  bookId?: string;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  filePath: string;
+  durationSeconds?: number;
+  published: boolean;
+  updatedAt?: string;
+};
+
 export type Mcq = {
   id: string;
   subjectId: string;

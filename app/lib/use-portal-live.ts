@@ -7,8 +7,17 @@ import {
   listMcqs,
   listMockExams,
   listSubjects,
+  listVideos,
 } from "@/lib/repositories/portal-repository";
-import type { Attempt, AudioLesson, Book, Mcq, MockExam, Subject } from "@/lib/types/admin";
+import type {
+  Attempt,
+  AudioLesson,
+  Book,
+  Mcq,
+  MockExam,
+  Subject,
+  VideoLesson,
+} from "@/lib/types/admin";
 import { useAuth } from "../context/auth-context";
 import { studentApi } from "@/lib/services/student-api";
 
@@ -19,6 +28,7 @@ export function usePortalLiveData() {
   const [audios, setAudios] = useState<AudioLesson[]>([]);
   const [mcqs, setMcqs] = useState<Mcq[]>([]);
   const [mocks, setMocks] = useState<MockExam[]>([]);
+  const [videos, setVideos] = useState<VideoLesson[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,12 +36,13 @@ export function usePortalLiveData() {
     let mounted = true;
     const load = async () => {
       try {
-        const [subjectsResp, booksResp, audiosResp, mcqsResp, mocksResp] = await Promise.all([
+        const [subjectsResp, booksResp, audiosResp, mcqsResp, mocksResp, videosResp] = await Promise.all([
           listSubjects(),
           listBooks(),
           listAudios(),
           listMcqs(),
           listMockExams(),
+          listVideos(),
         ]);
         if (!mounted) return;
         setSubjects(subjectsResp.filter((item) => item.published));
@@ -39,6 +50,7 @@ export function usePortalLiveData() {
         setAudios(audiosResp.filter((item) => item.published));
         setMcqs(mcqsResp.filter((item) => item.published));
         setMocks(mocksResp.filter((item) => item.published));
+        setVideos(videosResp.filter((item) => item.published));
 
         if (user) {
           const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
@@ -56,5 +68,5 @@ export function usePortalLiveData() {
     };
   }, [user]);
 
-  return { subjects, books, audios, mcqs, mocks, attempts, loading };
+  return { subjects, books, audios, videos, mcqs, mocks, attempts, loading };
 }

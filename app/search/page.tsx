@@ -7,7 +7,7 @@ import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
-  const { subjects, books, audios, mcqs, mocks } = usePortalLiveData();
+  const { subjects, books, audios, videos, mcqs, mocks } = usePortalLiveData();
   const q = query.trim().toLowerCase();
 
   const filteredSubjects = useMemo(
@@ -44,7 +44,7 @@ export default function SearchPage() {
         </p>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-4">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Books & Audio</h3>
           <div className="mt-4 space-y-2">
@@ -55,7 +55,8 @@ export default function SearchPage() {
               <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
                 <p className="text-sm font-medium">{item.name}</p>
                 <p className="text-xs text-slate-600">
-                  {book?.title || "No book"} | {audio?.title || "No audio"}
+                  {book?.title || "No book"} | {audio?.title || "No audio"} |{" "}
+                  {(videos.filter((video) => video.subjectId === item.id).length || 0).toString()} videos
                 </p>
                 <Link href={`/subjects/${item.id}`} className="mt-2 inline-block text-xs text-slate-700 underline">
                   Open subject
@@ -95,6 +96,22 @@ export default function SearchPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold">Videos</h3>
+          <div className="mt-4 space-y-2">
+            {videos
+              .filter((item) => !q || item.title.toLowerCase().includes(q))
+              .map((item) => (
+                <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <p className="text-xs text-slate-600">{item.subjectName}</p>
+                  <Link href={`/subjects/${item.subjectId}`} className="mt-2 inline-block text-xs underline">
+                    Watch in subject workspace
+                  </Link>
+                </div>
+              ))}
           </div>
         </article>
       </section>
