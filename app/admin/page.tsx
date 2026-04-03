@@ -1,59 +1,37 @@
-import PortalShell from "../components/portal-shell";
+import Link from "next/link";
+import AdminGuard from "../components/admin/admin-guard";
+import AdminShell from "../components/admin/admin-shell";
 
 const adminSections = [
-  {
-    title: "Students / Access",
-    actions: [
-      "Generate and manage access",
-      "See activation status by email",
-      "Disable or re-enable student access",
-    ],
-  },
-  {
-    title: "Books",
-    actions: ["Upload PDF", "Assign FLK + subject", "Edit/delete and replace files"],
-  },
-  {
-    title: "Audios",
-    actions: [
-      "Upload audio and set title",
-      "Assign to FLK + subject",
-      "Link audio to correct book",
-    ],
-  },
-  {
-    title: "MCQs and Mocks",
-    actions: [
-      "Create/edit/delete MCQs",
-      "Set 5 options + correct answer + explanation",
-      "Group questions into mock exams",
-    ],
-  },
+  { href: "/admin/students", title: "Students & Access", text: "Manage activation and access control." },
+  { href: "/admin/subjects", title: "Subjects", text: "Control FLK structure and subject ordering." },
+  { href: "/admin/books", title: "Books", text: "Upload and assign FLK subject PDFs." },
+  { href: "/admin/audios", title: "Audios", text: "Upload audio and link to books." },
+  { href: "/admin/mcqs", title: "MCQs", text: "Author 5-option questions with explanations." },
+  { href: "/admin/mocks", title: "Mock Exams", text: "Group MCQs into exam and practice sets." },
 ];
 
 export default function AdminPage() {
   return (
-    <PortalShell
-      title="Admin Panel"
-      subtitle="Central management for students, books, audios, MCQs, and access control."
-    >
-      <section className="grid gap-4 md:grid-cols-2">
-        {adminSections.map((section) => (
-          <article
-            key={section.title}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <h3 className="text-lg font-semibold">{section.title}</h3>
-            <ul className="mt-4 space-y-2">
-              {section.actions.map((action) => (
-                <li key={action} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                  {action}
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </section>
-    </PortalShell>
+    <AdminGuard>
+      <AdminShell
+        title="Admin Overview"
+        subtitle="Everything is organized in guided sections so non-technical team members can confidently manage student learning content."
+      >
+        <section className="grid gap-4 md:grid-cols-2">
+          {adminSections.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <h3 className="text-lg font-semibold">{section.title}</h3>
+              <p className="mt-2 text-sm text-slate-600">{section.text}</p>
+              <p className="mt-4 text-sm font-medium text-slate-900">Open module</p>
+            </Link>
+          ))}
+        </section>
+      </AdminShell>
+    </AdminGuard>
   );
 }

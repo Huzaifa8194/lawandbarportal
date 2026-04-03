@@ -20,7 +20,8 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
 
     try {
       await signIn(email, password);
-      router.push(nextPath || "/");
+      const safePath = nextPath.startsWith("/") ? nextPath : "/";
+      router.push(safePath || "/");
     } catch {
       setError("Login failed. Check your credentials and try again.");
     } finally {

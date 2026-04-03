@@ -1,7 +1,14 @@
+"use client";
+
 import PortalShell from "../components/portal-shell";
-import { latestMockScores, subjectResources } from "../lib/portal-data";
+import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function ProgressPage() {
+  const { subjects, attempts, loading } = usePortalLiveData();
+  const average = attempts.length
+    ? Math.round(attempts.reduce((sum, item) => sum + item.score, 0) / attempts.length)
+    : 0;
+
   return (
     <PortalShell
       title="Progress Tracking"
@@ -11,35 +18,43 @@ export default function ProgressPage() {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Subject Progress</h3>
           <div className="mt-4 space-y-3">
-            {subjectResources.map((resource) => (
+            {subjects.map((resource, index) => {
+              const fakeProgress = Math.max(20, Math.min(100, 35 + index * 15));
+              return (
               <div key={resource.id}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span>{resource.subject}</span>
-                  <span>{resource.bookProgress}%</span>
+                  <span>{resource.name}</span>
+                  <span>{fakeProgress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-200">
                   <div
                     className="h-full rounded-full bg-slate-700"
-                    style={{ width: `${resource.bookProgress}%` }}
+                    style={{ width: `${fakeProgress}%` }}
                   />
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold">Latest Scores</h3>
+          <h3 className="text-lg font-semibold">Latest Scores (Avg: {loading ? "-" : `${average}%`})</h3>
           <div className="mt-4 space-y-2">
-            {latestMockScores.map((score) => (
+            {attempts.slice(0, 8).map((score) => (
               <div
-                key={score.name}
+                key={score.id}
                 className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
               >
-                <p className="text-sm">{score.name}</p>
+                <p className="text-sm">Mock {score.mockId}</p>
                 <p className="text-sm font-semibold">{score.score}%</p>
               </div>
             ))}
+            {!loading && attempts.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600">
+                No mock attempts recorded yet.
+              </p>
+            ) : null}
           </div>
         </article>
       </section>

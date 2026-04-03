@@ -1,7 +1,19 @@
+"use client";
+
 import PortalShell from "./components/portal-shell";
-import { latestMockScores, subjectResources } from "./lib/portal-data";
+import { usePortalLiveData } from "./lib/use-portal-live";
 
 export default function Home() {
+  const { subjects, books, audios, attempts, loading } = usePortalLiveData();
+  const averageScore = attempts.length
+    ? Math.round(attempts.reduce((sum, item) => sum + item.score, 0) / attempts.length)
+    : 0;
+  const continueItems = subjects.slice(0, 4).map((subject) => ({
+    subject,
+    book: books.find((book) => book.subjectId === subject.id),
+    audio: audios.find((audio) => audio.subjectId === subject.id),
+  }));
+
   return (
     <PortalShell
       title="Welcome back, Student"
@@ -10,15 +22,15 @@ export default function Home() {
       <section className="grid gap-4 md:grid-cols-3">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Subjects in progress</p>
-          <p className="mt-2 text-2xl font-semibold">{subjectResources.length}</p>
+          <p className="mt-2 text-2xl font-semibold">{loading ? "-" : subjects.length}</p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Average mock score</p>
-          <p className="mt-2 text-2xl font-semibold">72%</p>
+          <p className="mt-2 text-2xl font-semibold">{loading ? "-" : `${averageScore}%`}</p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Recent activity</p>
-          <p className="mt-2 text-2xl font-semibold">12 this week</p>
+          <p className="text-sm text-slate-500">Recent attempts</p>
+          <p className="mt-2 text-2xl font-semibold">{loading ? "-" : attempts.length}</p>
         </article>
       </section>
 
@@ -26,20 +38,20 @@ export default function Home() {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Continue Learning</h3>
           <div className="mt-4 space-y-3">
-            {subjectResources.map((resource) => (
+            {continueItems.map((resource) => (
               <div
-                key={resource.id}
+                key={resource.subject.id}
                 className="rounded-xl border border-slate-200 p-4"
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {resource.track}
+                  {resource.subject.track}
                 </p>
-                <p className="mt-1 font-semibold">{resource.subject}</p>
+                <p className="mt-1 font-semibold">{resource.subject.name}</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  {resource.bookTitle} - {resource.bookProgress}% read
+                  {resource.book?.title || "No published book yet"}
                 </p>
                 <p className="text-sm text-slate-600">
-                  {resource.audioTitle} - resume at {resource.audioPosition}
+                  {resource.audio?.title || "No published audio yet"}
                 </p>
               </div>
             ))}
@@ -48,18 +60,23 @@ export default function Home() {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Latest Mock Scores</h3>
           <div className="mt-4 space-y-3">
-            {latestMockScores.map((item) => (
+            {attempts.slice(0, 5).map((item) => (
               <div
-                key={item.name}
+                key={item.id}
                 className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
               >
                 <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-slate-500">{item.mode} Mode</p>
+                  <p className="font-medium">Mock ID: {item.mockId}</p>
+                  <p className="text-sm text-slate-500">Attempted</p>
                 </div>
                 <p className="text-lg font-semibold">{item.score}%</p>
               </div>
             ))}
+            {!loading && attempts.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                No attempts yet. Start a mock exam to generate progress history.
+              </p>
+            ) : null}
           </div>
         </article>
       </section>

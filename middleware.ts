@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const protectedPaths = ["/", "/subjects", "/mocks", "/progress", "/search", "/admin"];
+const adminPath = "/admin";
 
 function isProtectedPath(pathname: string) {
   return protectedPaths.some(
@@ -11,7 +12,9 @@ function isProtectedPath(pathname: string) {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const sessionCookie = request.cookies.get("lb_session")?.value;
+  const adminCookie = request.cookies.get("lb_admin")?.value;
   const isLoggedIn = sessionCookie === "1";
+  const isAdmin = adminCookie === "1";
 
   if (pathname.startsWith("/auth/login")) {
     if (isLoggedIn) {
@@ -24,6 +27,10 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if ((pathname === adminPath || pathname.startsWith("/admin/")) && !isAdmin) {
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 
   return NextResponse.next();

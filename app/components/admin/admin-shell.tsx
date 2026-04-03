@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import LogoutButton from "./logout-button";
-import { useAuth } from "../context/auth-context";
+import LogoutButton from "../logout-button";
 
-const navItems = [
-  { href: "/", label: "Dashboard" },
-  { href: "/subjects", label: "Subjects" },
-  { href: "/mocks", label: "Mock Exams" },
-  { href: "/progress", label: "Progress" },
-  { href: "/search", label: "Search" },
-  { href: "/admin", label: "Admin" },
+const items = [
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/students", label: "Students & Access" },
+  { href: "/admin/subjects", label: "Subjects" },
+  { href: "/admin/books", label: "Books" },
+  { href: "/admin/audios", label: "Audios" },
+  { href: "/admin/mcqs", label: "MCQs" },
+  { href: "/admin/mocks", label: "Mocks" },
 ];
 
-export default function PortalShell({
+export default function AdminShell({
   title,
   subtitle,
   children,
@@ -22,20 +22,17 @@ export default function PortalShell({
   subtitle: string;
   children: React.ReactNode;
 }) {
-  const { isAdmin, loading } = useAuth();
-  const links = navItems.filter((item) => (item.href === "/admin" ? isAdmin : true));
-
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[260px_1fr]">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[280px_1fr]">
         <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
             Law & Bar
           </p>
-          <h1 className="mt-1 text-lg font-semibold">SQE Study Portal</h1>
-          <p className="mt-1 text-sm text-slate-500">Student Learning Area</p>
+          <h1 className="mt-1 text-lg font-semibold">SQE Admin Console</h1>
+          <p className="mt-1 text-sm text-slate-500">Guided content and access management</p>
           <nav className="mt-6 space-y-2">
-            {links.map((item) => (
+            {items.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -45,13 +42,10 @@ export default function PortalShell({
               </Link>
             ))}
           </nav>
-          <p className="mt-5 text-xs text-slate-500">
-            {loading ? "Checking permissions..." : isAdmin ? "Admin account" : "Student account"}
-          </p>
         </aside>
-        <main className="space-y-6">
+        <main className="space-y-5">
           <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">{title}</h2>
                 <p className="mt-2 text-sm text-slate-600">{subtitle}</p>

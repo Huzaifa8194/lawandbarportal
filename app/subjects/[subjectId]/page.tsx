@@ -1,32 +1,26 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useParams } from "next/navigation";
 import PortalShell from "../../components/portal-shell";
-import { mcqQuestions, subjectResources } from "../../lib/portal-data";
+import { usePortalLiveData } from "../../lib/use-portal-live";
 
-export default async function SubjectWorkspacePage({
-  params,
-}: {
-  params: Promise<{ subjectId: string }>;
-}) {
-  const { subjectId } = await params;
-  const subject = subjectResources.find((item) => item.id === subjectId);
-
-  if (!subject) {
-    notFound();
-  }
-
-  const relatedQuestions = mcqQuestions.filter(
-    (question) => question.subject === subject.subject,
-  );
+export default function SubjectWorkspacePage() {
+  const params = useParams<{ subjectId: string }>();
+  const { subjects, books, audios, mcqs, loading } = usePortalLiveData();
+  const subject = subjects.find((item) => item.id === params.subjectId);
+  const relatedBook = books.find((item) => item.subjectId === params.subjectId);
+  const relatedAudio = audios.find((item) => item.subjectId === params.subjectId);
+  const relatedQuestions = mcqs.filter((question) => question.subjectId === params.subjectId);
 
   return (
     <PortalShell
-      title={`${subject.subject} Workspace`}
+      title={`${subject?.name || "Subject"} Workspace`}
       subtitle="Read the book and listen to related audio together, then test knowledge with MCQs."
     >
       <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">PDF Book Viewer</h3>
-          <p className="mt-2 text-sm text-slate-600">{subject.bookTitle}</p>
+          <p className="mt-2 text-sm text-slate-600">{relatedBook?.title || "No book uploaded yet."}</p>
           <p className="mt-1 text-sm text-slate-600">
             Last opened page and bookmarks should be persisted for each student.
           </p>
@@ -37,9 +31,9 @@ export default async function SubjectWorkspacePage({
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Audio Lesson</h3>
-          <p className="mt-2 text-sm text-slate-600">{subject.audioTitle}</p>
+          <p className="mt-2 text-sm text-slate-600">{relatedAudio?.title || "No audio uploaded yet."}</p>
           <p className="mt-1 text-sm text-slate-600">
-            Resume from: {subject.audioPosition} / {subject.audioDuration}
+            Duration: {relatedAudio?.durationSeconds ? `${relatedAudio.durationSeconds}s` : "N/A"}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
@@ -74,6 +68,11 @@ export default async function SubjectWorkspacePage({
           )}
         </div>
       </section>
+      {!loading && !subject ? (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">
+          Subject not found or not published.
+        </section>
+      ) : null}
     </PortalShell>
   );
 }

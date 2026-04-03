@@ -11,6 +11,7 @@ This app is structured to share the same Firebase auth/database project as the m
 ```bash
 npm install
 npm install firebase
+npm install firebase-admin
 ```
 
 2) Create `.env.local` from `.env.example` and set these values to match your main website Firebase project:
@@ -22,6 +23,9 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
 ```
 
 3) Run the app:
@@ -38,8 +42,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - Auth provider/context: `app/context/auth-context.tsx`
 - Login page: `app/auth/login/page.tsx`
 - Protected routes middleware: `middleware.ts`
+- Secure admin request verification: `app/api/admin/_lib/auth.ts`
+- Firebase admin SDK setup: `lib/firebase-admin.ts`
 
-Protected pages currently include:
+Protected pages include:
 
 - `/`
 - `/subjects/*`
@@ -48,13 +54,13 @@ Protected pages currently include:
 - `/search`
 - `/admin`
 
-## Next Integration Step
+Admin CRUD modules:
 
-Connect page data currently in `app/lib/portal-data.ts` to Firestore collections for:
+- `/admin/students`
+- `/admin/subjects`
+- `/admin/books`
+- `/admin/audios`
+- `/admin/mcqs`
+- `/admin/mocks`
 
-- subjects
-- books
-- audios
-- mcqs
-- mock_exams
-- attempts / scores
+Student pages now read from Firestore-backed repositories in `lib/repositories/portal-repository.ts`.

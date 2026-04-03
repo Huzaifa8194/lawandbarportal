@@ -1,7 +1,23 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import PortalShell from "../components/portal-shell";
-import { mcqQuestions, subjectResources } from "../lib/portal-data";
+import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function SearchPage() {
+  const [query, setQuery] = useState("");
+  const { subjects, books, audios, mcqs } = usePortalLiveData();
+  const q = query.trim().toLowerCase();
+
+  const filteredSubjects = useMemo(
+    () => subjects.filter((item) => !q || item.name.toLowerCase().includes(q)),
+    [q, subjects],
+  );
+  const filteredMcqs = useMemo(
+    () => mcqs.filter((item) => !q || item.question.toLowerCase().includes(q)),
+    [mcqs, q],
+  );
+
   return (
     <PortalShell
       title="Search"
@@ -13,6 +29,8 @@ export default function SearchPage() {
         </label>
         <input
           id="portal-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Search subjects, books, audios, mock questions..."
           className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
         />
@@ -25,22 +43,26 @@ export default function SearchPage() {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Books & Audio</h3>
           <div className="mt-4 space-y-2">
-            {subjectResources.map((item) => (
+            {filteredSubjects.map((item) => {
+              const book = books.find((bookItem) => bookItem.subjectId === item.id);
+              const audio = audios.find((audioItem) => audioItem.subjectId === item.id);
+              return (
               <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
-                <p className="text-sm font-medium">{item.subject}</p>
+                <p className="text-sm font-medium">{item.name}</p>
                 <p className="text-xs text-slate-600">
-                  {item.bookTitle} | {item.audioTitle}
+                  {book?.title || "No book"} | {audio?.title || "No audio"}
                 </p>
               </div>
-            ))}
+              );
+            })}
           </div>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">MCQs</h3>
           <div className="mt-4 space-y-2">
-            {mcqQuestions.map((item) => (
+            {filteredMcqs.map((item) => (
               <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
-                <p className="text-sm font-medium">{item.subject}</p>
+                <p className="text-sm font-medium">{item.subjectName}</p>
                 <p className="text-xs text-slate-600">{item.question}</p>
               </div>
             ))}

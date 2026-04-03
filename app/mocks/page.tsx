@@ -1,4 +1,7 @@
+"use client";
+
 import PortalShell from "../components/portal-shell";
+import { usePortalLiveData } from "../lib/use-portal-live";
 
 const practiceFlow = [
   "One question at a time",
@@ -13,6 +16,10 @@ const examFlow = [
 ];
 
 export default function MocksPage() {
+  const { mocks, loading } = usePortalLiveData();
+  const practice = mocks.filter((item) => item.revealAnswersInPractice);
+  const exams = mocks.filter((item) => item.examMode);
+
   return (
     <PortalShell
       title="Mock Exams & MCQs"
@@ -31,6 +38,18 @@ export default function MocksPage() {
           <button className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
             Start Practice Session
           </button>
+          <div className="mt-4 space-y-2">
+            {practice.slice(0, 4).map((mock) => (
+              <div key={mock.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                {mock.title} • {mock.questionIds.length} questions
+              </div>
+            ))}
+            {!loading && practice.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
+                No practice mocks published yet.
+              </p>
+            ) : null}
+          </div>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -45,6 +64,18 @@ export default function MocksPage() {
           <button className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
             Start Full Mock
           </button>
+          <div className="mt-4 space-y-2">
+            {exams.slice(0, 4).map((mock) => (
+              <div key={mock.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                {mock.title} • {mock.durationMinutes} minutes
+              </div>
+            ))}
+            {!loading && exams.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
+                No exam mocks published yet.
+              </p>
+            ) : null}
+          </div>
         </article>
       </section>
     </PortalShell>
