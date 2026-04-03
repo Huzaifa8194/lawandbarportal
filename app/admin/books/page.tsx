@@ -217,13 +217,15 @@ export default function AdminBooksPage() {
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
+                      type="button"
                       onClick={() => onEdit(book)}
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
                     >
                       Edit
                     </button>
                     <button
-                      onClick={() => onDelete(book)}
+                      type="button"
+                      onClick={() => void onDelete(book)}
                       className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700"
                     >
                       Delete

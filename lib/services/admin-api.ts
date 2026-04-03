@@ -14,6 +14,16 @@ async function getHeaders() {
   };
 }
 
+async function parseResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return {};
+  }
+}
+
 async function request<T>(url: string, method = "GET", body?: unknown): Promise<T> {
   const headers = await getHeaders();
   const response = await fetch(url, {
@@ -21,11 +31,15 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+  const data = (await parseResponseBody(response)) as T & { error?: string };
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    const message =
+      typeof data === "object" && data !== null && "error" in data && typeof (data as { error?: string }).error === "string"
+        ? (data as { error: string }).error
+        : `Request failed: ${response.status}`;
+    throw new Error(message);
   }
-  return response.json() as Promise<T>;
+  return data as T;
 }
 
 export const adminApi = {

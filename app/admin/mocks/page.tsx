@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminGuard from "@/app/components/admin/admin-guard";
 import AdminShell from "@/app/components/admin/admin-shell";
 import FormSection from "@/app/components/admin/form-section";
@@ -16,6 +16,7 @@ export default function AdminMocksPage() {
     null,
   );
   const [saving, setSaving] = useState(false);
+  const [mcqSearch, setMcqSearch] = useState("");
   const [form, setForm] = useState({
     id: "",
     title: "",
@@ -95,14 +96,26 @@ export default function AdminMocksPage() {
       id: mock.id,
       title: mock.title,
       track: mock.track,
-      subjectIds: mock.subjectIds,
-      questionIds: mock.questionIds,
+      subjectIds: Array.isArray(mock.subjectIds) ? mock.subjectIds : [],
+      questionIds: Array.isArray(mock.questionIds) ? mock.questionIds : [],
       durationMinutes: mock.durationMinutes,
       examMode: mock.examMode,
       revealAnswersInPractice: mock.revealAnswersInPractice,
       published: mock.published,
     });
   };
+
+  const mcqsForPicker = useMemo(() => {
+    const want = form.track.replace(/\s/g, "").toLowerCase();
+    const byTrack = mcqs.filter((mcq) => {
+      const got = (mcq.track || "").replace(/\s/g, "").toLowerCase();
+      return got === want || got === "";
+    });
+    const pool = byTrack.length ? byTrack : mcqs;
+    const q = mcqSearch.trim().toLowerCase();
+    if (!q) return pool;
+    return pool.filter((item) => item.question.toLowerCase().includes(q));
+  }, [form.track, mcqSearch, mcqs]);
 
   const toggleArrayValue = (key: "subjectIds" | "questionIds", value: string) => {
     setForm((prev) => {
@@ -169,11 +182,27 @@ export default function AdminMocksPage() {
                 </div>
               </FormSection>
 
-              <FormSection title="Questions included">
+              <FormSection
+                title="Questions included"
+                helper="MCQs are filtered by the mock FLK above. If the list is empty, create MCQs in Admin → MCQs or widen the search. Questions without a FLK set still appear."
+              >
+                <input
+                  type="search"
+                  value={mcqSearch}
+                  onChange={(event) => setMcqSearch(event.target.value)}
+                  placeholder="Search question text…"
+                  className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <p className="mb-2 text-xs text-slate-500">
+                  Showing {mcqsForPicker.length} of {mcqs.length} MCQs • {form.questionIds.length} selected
+                </p>
                 <div className="max-h-60 space-y-2 overflow-auto rounded-lg border border-slate-200 p-3">
-                  {mcqs
-                    .filter((mcq) => mcq.track === form.track)
-                    .map((mcq) => (
+                  {mcqsForPicker.length === 0 ? (
+                    <p className="text-sm text-slate-600">
+                      No MCQs match. Add questions in MCQs admin or adjust FLK/search.
+                    </p>
+                  ) : (
+                    mcqsForPicker.map((mcq) => (
                       <label key={mcq.id} className="flex items-start gap-2 text-sm">
                         <input
                           type="checkbox"
@@ -182,7 +211,8 @@ export default function AdminMocksPage() {
                         />
                         <span>{mcq.question}</span>
                       </label>
-                    ))}
+                    ))
+                  )}
                 </div>
               </FormSection>
 

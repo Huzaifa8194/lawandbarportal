@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../../_lib/auth";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb, adminStorage } from "@/lib/firebase-admin";
 
 export async function DELETE(
   request: NextRequest,
@@ -9,6 +9,15 @@ export async function DELETE(
   try {
     await verifyAdminRequest(request);
     const { id } = await params;
+    const snap = await adminDb.collection("books").doc(id).get();
+    const filePath = snap.data()?.filePath as string | undefined;
+    if (filePath) {
+      try {
+        await adminStorage.bucket().file(filePath).delete();
+      } catch {
+        // Missing file or permission — still remove Firestore doc
+      }
+    }
     await adminDb.collection("books").doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {
