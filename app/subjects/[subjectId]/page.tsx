@@ -473,8 +473,8 @@ export default function SubjectWorkspacePage() {
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
-                    <div className="flex h-[60vh] min-h-[420px] w-full items-start justify-center overflow-auto rounded-[12px] bg-white p-2 text-slate-900 sm:h-[70vh] sm:p-4">
-                      <div className="h-full w-full overflow-hidden rounded-lg border border-slate-200">
+                    <div className="flex h-[72vh] min-h-[540px] w-full items-start justify-center overflow-y-auto overflow-x-hidden rounded-[12px] bg-white p-2 text-slate-900 sm:h-[82vh] sm:min-h-[680px] sm:p-4">
+                      <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
                         <DocViewer
                           documents={pdfDocuments}
                           pluginRenderers={DocViewerRenderers}
