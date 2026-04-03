@@ -84,6 +84,14 @@ export type Attempt = {
   id: string;
   userId: string;
   mockId: string;
+  mode?: "practice" | "exam";
   score: number;
+  totalQuestions?: number;
+  answers?: Array<{
+    mcqId: string;
+    selectedOption: number;
+    correctOption: number;
+    isCorrect: boolean;
+  }>;
   createdAt?: string;
 };

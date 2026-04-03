@@ -4,10 +4,23 @@ import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function ProgressPage() {
-  const { subjects, attempts, loading } = usePortalLiveData();
+  const { subjects, attempts, mcqs, loading } = usePortalLiveData();
   const average = attempts.length
     ? Math.round(attempts.reduce((sum, item) => sum + item.score, 0) / attempts.length)
     : 0;
+  const weakAreas = subjects
+    .map((subject) => {
+      const subjectMcqIds = mcqs
+        .filter((question) => question.subjectId === subject.id)
+        .map((question) => question.id);
+      const wrong = attempts.flatMap((attempt) => attempt.answers || []).filter(
+        (answer) => subjectMcqIds.includes(answer.mcqId) && !answer.isCorrect,
+      ).length;
+      return { subject: subject.name, wrong };
+    })
+    .filter((item) => item.wrong > 0)
+    .sort((a, b) => b.wrong - a.wrong)
+    .slice(0, 5);
 
   return (
     <PortalShell
@@ -57,6 +70,22 @@ export default function ProgressPage() {
             ) : null}
           </div>
         </article>
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-semibold">Weak Areas</h3>
+        <div className="mt-3 space-y-2">
+          {weakAreas.map((item) => (
+            <div key={item.subject} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <span>{item.subject}</span>
+              <span>{item.wrong} incorrect answers</span>
+            </div>
+          ))}
+          {!loading && weakAreas.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600">
+              No weak areas detected yet. Complete more mocks to generate insights.
+            </p>
+          ) : null}
+        </div>
       </section>
     </PortalShell>
   );

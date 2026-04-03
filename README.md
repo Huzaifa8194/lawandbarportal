@@ -36,6 +36,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Optional Library Stack (Install Yourself)
+
+For richer student UX (recommended), run these yourself:
+
+```bash
+npm install @react-pdf-viewer/core @react-pdf-viewer/default-layout pdfjs-dist
+```
+
+If you prefer annotation-heavy commercial-grade PDF tooling later, we can switch to a paid SDK.
+Current implementation includes a no-dependency fallback viewer so the app still runs without these packages.
+
 ## Current Auth Wiring
 
 - Firebase client setup: `lib/firebase.ts`

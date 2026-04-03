@@ -2,6 +2,7 @@
 
 import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
+import Link from "next/link";
 
 const practiceFlow = [
   "One question at a time",
@@ -35,14 +36,15 @@ export default function MocksPage() {
               </li>
             ))}
           </ul>
-          <button className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
-            Start Practice Session
-          </button>
           <div className="mt-4 space-y-2">
             {practice.slice(0, 4).map((mock) => (
-              <div key={mock.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+              <Link
+                href={`/mocks/${mock.id}?mode=practice`}
+                key={mock.id}
+                className="block rounded-lg border border-slate-200 p-3 text-sm hover:bg-slate-50"
+              >
                 {mock.title} • {mock.questionIds.length} questions
-              </div>
+              </Link>
             ))}
             {!loading && practice.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
@@ -61,14 +63,15 @@ export default function MocksPage() {
               </li>
             ))}
           </ul>
-          <button className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
-            Start Full Mock
-          </button>
           <div className="mt-4 space-y-2">
             {exams.slice(0, 4).map((mock) => (
-              <div key={mock.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+              <Link
+                href={`/mocks/${mock.id}?mode=exam`}
+                key={mock.id}
+                className="block rounded-lg border border-slate-200 p-3 text-sm hover:bg-slate-50"
+              >
                 {mock.title} • {mock.durationMinutes} minutes
-              </div>
+              </Link>
             ))}
             {!loading && exams.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">

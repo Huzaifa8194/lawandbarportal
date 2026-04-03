@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   listAudios,
-  listAttemptsByUser,
   listBooks,
   listMcqs,
   listMockExams,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/repositories/portal-repository";
 import type { Attempt, AudioLesson, Book, Mcq, MockExam, Subject } from "@/lib/types/admin";
 import { useAuth } from "../context/auth-context";
+import { studentApi } from "@/lib/services/student-api";
 
 export function usePortalLiveData() {
   const { user } = useAuth();
@@ -41,7 +41,7 @@ export function usePortalLiveData() {
         setMocks(mocksResp.filter((item) => item.published));
 
         if (user) {
-          const attemptsResp = await listAttemptsByUser(user.uid);
+          const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
           if (mounted) setAttempts(attemptsResp);
         } else {
           setAttempts([]);

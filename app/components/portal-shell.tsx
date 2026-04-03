@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import LogoutButton from "./logout-button";
 import { useAuth } from "../context/auth-context";
 
@@ -23,6 +24,7 @@ export default function PortalShell({
   children: React.ReactNode;
 }) {
   const { isAdmin, loading } = useAuth();
+  const pathname = usePathname();
   const links = navItems.filter((item) => (item.href === "/admin" ? isAdmin : true));
 
   return (
@@ -39,12 +41,19 @@ export default function PortalShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className="block rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className={`block rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  pathname === item.href || pathname.startsWith(`${item.href}/`)
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            Tip: Start from Subjects to study with PDF + audio together, then attempt mocks.
+          </div>
           <p className="mt-5 text-xs text-slate-500">
             {loading ? "Checking permissions..." : isAdmin ? "Admin account" : "Student account"}
           </p>

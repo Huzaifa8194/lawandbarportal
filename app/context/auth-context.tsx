@@ -43,11 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         document.cookie = "lb_session=1; path=/; max-age=2592000; samesite=lax";
         document.cookie = `lb_admin=${nextIsAdmin ? "1" : "0"}; path=/; max-age=2592000; samesite=lax`;
+        document.cookie = `lb_access=${nextAccessEnabled ? "1" : "0"}; path=/; max-age=2592000; samesite=lax`;
       } else {
         setIsAdmin(false);
         setAccessEnabled(true);
         document.cookie = "lb_session=; path=/; max-age=0; samesite=lax";
         document.cookie = "lb_admin=; path=/; max-age=0; samesite=lax";
+        document.cookie = "lb_access=; path=/; max-age=0; samesite=lax";
       }
       setLoading(false);
     });

@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
-  const { subjects, books, audios, mcqs } = usePortalLiveData();
+  const { subjects, books, audios, mcqs, mocks } = usePortalLiveData();
   const q = query.trim().toLowerCase();
 
   const filteredSubjects = useMemo(
@@ -16,6 +17,10 @@ export default function SearchPage() {
   const filteredMcqs = useMemo(
     () => mcqs.filter((item) => !q || item.question.toLowerCase().includes(q)),
     [mcqs, q],
+  );
+  const filteredMocks = useMemo(
+    () => mocks.filter((item) => !q || item.title.toLowerCase().includes(q)),
+    [mocks, q],
   );
 
   return (
@@ -35,11 +40,11 @@ export default function SearchPage() {
           className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
         />
         <p className="mt-2 text-xs text-slate-500">
-          Connect this input to Firestore queries / full-text indexing in the next step.
+          Search is scoped across published subjects, books, audios, MCQs, and mock exams.
         </p>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-3">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Books & Audio</h3>
           <div className="mt-4 space-y-2">
@@ -52,6 +57,9 @@ export default function SearchPage() {
                 <p className="text-xs text-slate-600">
                   {book?.title || "No book"} | {audio?.title || "No audio"}
                 </p>
+                <Link href={`/subjects/${item.id}`} className="mt-2 inline-block text-xs text-slate-700 underline">
+                  Open subject
+                </Link>
               </div>
               );
             })}
@@ -64,6 +72,27 @@ export default function SearchPage() {
               <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
                 <p className="text-sm font-medium">{item.subjectName}</p>
                 <p className="text-xs text-slate-600">{item.question}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold">Mocks</h3>
+          <div className="mt-4 space-y-2">
+            {filteredMocks.map((item) => (
+              <div key={item.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="text-xs text-slate-600">
+                  {item.track} • {item.durationMinutes} min
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Link href={`/mocks/${item.id}?mode=practice`} className="text-xs underline">
+                    Practice
+                  </Link>
+                  <Link href={`/mocks/${item.id}?mode=exam`} className="text-xs underline">
+                    Exam
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

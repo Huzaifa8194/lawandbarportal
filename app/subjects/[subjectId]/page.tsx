@@ -1,6 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import AudioPlayer from "../../components/student/audio-player";
+import PdfWorkspace from "../../components/student/pdf-workspace";
 import PortalShell from "../../components/portal-shell";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 
@@ -17,35 +20,47 @@ export default function SubjectWorkspacePage() {
       title={`${subject?.name || "Subject"} Workspace`}
       subtitle="Read the book and listen to related audio together, then test knowledge with MCQs."
     >
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+      <section className="grid gap-4">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">PDF Book Viewer</h3>
-          <p className="mt-2 text-sm text-slate-600">{relatedBook?.title || "No book uploaded yet."}</p>
+          <p className="mt-2 text-sm text-slate-600">
+            {relatedBook?.title || "No book uploaded yet."}
+          </p>
           <p className="mt-1 text-sm text-slate-600">
             Last opened page and bookmarks should be persisted for each student.
           </p>
-          <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            PDF viewer area (embed actual viewer in next step)
-          </div>
+          {relatedBook ? (
+            <div className="mt-4">
+              <PdfWorkspace
+                bookId={relatedBook.id}
+                title={relatedBook.title}
+                fileUrl={relatedBook.fileUrl}
+              />
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              Ask admin to upload and publish a book for this subject.
+            </div>
+          )}
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Audio Lesson</h3>
-          <p className="mt-2 text-sm text-slate-600">{relatedAudio?.title || "No audio uploaded yet."}</p>
+          <p className="mt-2 text-sm text-slate-600">
+            {relatedAudio?.title || "No audio uploaded yet."}
+          </p>
           <p className="mt-1 text-sm text-slate-600">
             Duration: {relatedAudio?.durationSeconds ? `${relatedAudio.durationSeconds}s` : "N/A"}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-              Play / Pause
-            </button>
-            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium">
-              Seek
-            </button>
-            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium">
-              1x / 1.5x / 2x
-            </button>
-          </div>
+          {relatedAudio ? (
+            <div className="mt-4">
+              <AudioPlayer
+                audioId={relatedAudio.id}
+                audioUrl={relatedAudio.fileUrl}
+                title={relatedAudio.title}
+              />
+            </div>
+          ) : null}
         </article>
       </section>
 
@@ -63,6 +78,12 @@ export default function SubjectWorkspacePage() {
                 <p className="mt-2 text-sm text-slate-600">
                   5 options, single-answer structure configured.
                 </p>
+                <Link
+                  href="/mocks"
+                  className="mt-3 inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                >
+                  Open Mocks
+                </Link>
               </article>
             ))
           )}

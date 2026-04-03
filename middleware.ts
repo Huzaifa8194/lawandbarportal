@@ -13,8 +13,10 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const sessionCookie = request.cookies.get("lb_session")?.value;
   const adminCookie = request.cookies.get("lb_admin")?.value;
+  const accessCookie = request.cookies.get("lb_access")?.value;
   const isLoggedIn = sessionCookie === "1";
   const isAdmin = adminCookie === "1";
+  const hasAccess = accessCookie !== "0";
 
   if (pathname.startsWith("/auth/login")) {
     if (isLoggedIn) {
@@ -27,6 +29,10 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (isProtectedPath(pathname) && !hasAccess && !pathname.startsWith("/auth")) {
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 
   if ((pathname === adminPath || pathname.startsWith("/admin/")) && !isAdmin) {

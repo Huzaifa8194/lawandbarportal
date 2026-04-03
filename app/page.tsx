@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import PortalShell from "./components/portal-shell";
 import { usePortalLiveData } from "./lib/use-portal-live";
 
@@ -53,8 +54,19 @@ export default function Home() {
                 <p className="text-sm text-slate-600">
                   {resource.audio?.title || "No published audio yet"}
                 </p>
+                <Link
+                  href={`/subjects/${resource.subject.id}`}
+                  className="mt-3 inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                >
+                  Open subject workspace
+                </Link>
               </div>
             ))}
+            {!loading && continueItems.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                No published subjects yet. Your dashboard will populate as soon as content is assigned.
+              </p>
+            ) : null}
           </div>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
