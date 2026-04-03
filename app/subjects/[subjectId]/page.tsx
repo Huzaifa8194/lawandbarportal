@@ -7,8 +7,6 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -37,7 +35,12 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
   );
 }
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerPort = new Worker(
+    new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url),
+    { type: "module" },
+  );
+}
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
