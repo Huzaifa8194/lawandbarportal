@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LogoutButton from "./logout-button";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
@@ -41,8 +42,13 @@ export default function PortalShell({
         </aside>
         <main className="space-y-6">
           <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-semibold">{title}</h2>
-            <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-semibold">{title}</h2>
+                <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
+              </div>
+              <LogoutButton />
+            </div>
           </header>
           {children}
         </main>
