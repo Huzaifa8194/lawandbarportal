@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PortalShell from "../components/portal-shell";
 import { subjectResources } from "../lib/portal-data";
 
@@ -20,9 +21,12 @@ export default function SubjectsPage() {
                 </p>
                 <h3 className="mt-1 text-lg font-semibold">{resource.subject}</h3>
               </div>
-              <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700">
+              <Link
+                href={`/subjects/${resource.id}`}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+              >
                 Open Subject Workspace
-              </button>
+              </Link>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">

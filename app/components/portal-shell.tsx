@@ -5,6 +5,8 @@ const navItems = [
   { href: "/subjects", label: "Subjects" },
   { href: "/mocks", label: "Mock Exams" },
   { href: "/progress", label: "Progress" },
+  { href: "/search", label: "Search" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function PortalShell({
