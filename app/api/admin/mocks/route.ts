@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 
+type MockExamListRow = {
+  id: string;
+  updatedAt?: string;
+} & Record<string, unknown>;
+
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
     const snapshot = await adminDb.collection("mock_exams").get();
-    const rows = snapshot.docs
-      .map((item) => ({ id: item.id, ...item.data() }))
+    const rows: MockExamListRow[] = snapshot.docs
+      .map((item) => ({ id: item.id, ...(item.data() as Record<string, unknown>) }))
       .sort((a, b) => {
         const aTime = typeof a.updatedAt === "string" ? Date.parse(a.updatedAt) : 0;
         const bTime = typeof b.updatedAt === "string" ? Date.parse(b.updatedAt) : 0;
