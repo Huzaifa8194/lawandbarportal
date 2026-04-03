@@ -73,15 +73,12 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     let cancelled = false;
     const loadToken = async () => {
-      if (!user) {
-        setPdfToken(null);
-        return;
-      }
+      if (!user) return;
       try {
         const token = await user.getIdToken();
         if (!cancelled) setPdfToken(token);
       } catch {
-        if (!cancelled) setPdfToken(null);
+        // Keep the last good token so the viewer does not flicker/disappear.
       }
     };
     void loadToken();
