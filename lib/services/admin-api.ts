@@ -1,9 +1,25 @@
 "use client";
 
+import { onAuthStateChanged } from "firebase/auth";
+import type { User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
+/**
+ * `auth.currentUser` is often null for a tick after mount while Firebase restores
+ * the session. Admin pages call APIs in useEffect([]) before that resolves — wait once.
+ */
+async function getAuthUserReady(): Promise<User | null> {
+  if (auth.currentUser) return auth.currentUser;
+  return new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      unsub();
+      resolve(user);
+    });
+  });
+}
+
 async function getHeaders() {
-  const user = auth.currentUser;
+  const user = await getAuthUserReady();
   if (!user) {
     throw new Error("Not authenticated");
   }
