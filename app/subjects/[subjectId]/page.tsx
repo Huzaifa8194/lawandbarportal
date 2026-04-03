@@ -40,6 +40,7 @@ export default function SubjectWorkspacePage() {
   const { subjects, books, audios, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
   const relatedBook = books.find((item) => item.subjectId === params.subjectId);
+  const relatedBookId = typeof relatedBook?.id === "string" ? relatedBook.id.trim() : "";
   const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
   const relatedMocks = mocks.filter((item) => item.subjectIds.includes(params.subjectId));
 
@@ -174,7 +175,7 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
-  const pdfUrl = relatedBook ? `/api/student/books/${encodeURIComponent(relatedBook.id)}/file` : null;
+  const pdfUrl = relatedBookId ? `/api/student/books/${encodeURIComponent(relatedBookId)}/file` : null;
   const pdfDocuments = useMemo(
     () =>
       pdfUrl

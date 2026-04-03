@@ -35,7 +35,8 @@ function normalizeDate(value: unknown): string | undefined {
 
 async function listCollection<T>(name: string): Promise<T[]> {
   const snapshot = await getDocs(query(collection(db, name)));
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T);
+  // Ensure Firestore document id always wins over any stale `id` field stored in data.
+  return snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as T);
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
@@ -92,7 +93,7 @@ export async function listAttemptsByUser(userId: string): Promise<Attempt[]> {
   const attemptsRef = collection(db, "attempts");
   const snapshot = await getDocs(query(attemptsRef, orderBy("createdAt", "desc"), limit(30)));
   return snapshot.docs
-    .map((item) => ({ id: item.id, ...item.data() }) as Attempt)
+    .map((item) => ({ ...item.data(), id: item.id }) as Attempt)
     .filter((item) => item.userId === userId)
     .map((item) => ({ ...item, createdAt: normalizeDate(item.createdAt) }));
 }
