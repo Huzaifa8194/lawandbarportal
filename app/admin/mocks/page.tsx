@@ -41,7 +41,13 @@ export default function AdminMocksPage() {
   };
 
   useEffect(() => {
-    load().catch(() => setFeedback({ type: "error", message: "Failed to load mock exam data." }));
+    load().catch((error) =>
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error ? `Failed to load mock exam data: ${error.message}` : "Failed to load mock exam data.",
+      }),
+    );
   }, []);
 
   const onSave = async (event: React.FormEvent) => {

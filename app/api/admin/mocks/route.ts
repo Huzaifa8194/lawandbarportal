@@ -5,8 +5,14 @@ import { adminDb } from "@/lib/firebase-admin";
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
-    const snapshot = await adminDb.collection("mock_exams").orderBy("updatedAt", "desc").get();
-    const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    const snapshot = await adminDb.collection("mock_exams").get();
+    const rows = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .sort((a, b) => {
+        const aTime = typeof a.updatedAt === "string" ? Date.parse(a.updatedAt) : 0;
+        const bTime = typeof b.updatedAt === "string" ? Date.parse(b.updatedAt) : 0;
+        return bTime - aTime;
+      });
     return NextResponse.json(rows);
   } catch (error) {
     return NextResponse.json(

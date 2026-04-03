@@ -15,24 +15,32 @@ export default function MockSessionPage() {
   const { mocks, mcqs, loading } = usePortalLiveData();
 
   const mock = mocks.find((item) => item.id === params.mockId);
+  const questionIds = useMemo(
+    () => (Array.isArray(mock?.questionIds) ? mock.questionIds : []),
+    [mock?.questionIds],
+  );
   const questions = useMemo(
-    () => mcqs.filter((item) => mock?.questionIds.includes(item.id)),
-    [mcqs, mock?.questionIds],
+    () => mcqs.filter((item) => questionIds.includes(item.id)),
+    [mcqs, questionIds],
   );
 
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  /** null = exam timer not initialized yet (avoids treating 0 as "expired" on first paint). */
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    if (mode !== "exam" || !mock) return;
-    setTimeLeft(mock.durationMinutes * 60);
+    if (mode !== "exam" || !mock) {
+      setTimeLeft(null);
+      return;
+    }
+    setTimeLeft(Math.max(0, mock.durationMinutes * 60));
   }, [mode, mock]);
 
   useEffect(() => {
-    if (mode !== "exam" || !timeLeft || submitted) return;
-    const timer = setInterval(() => setTimeLeft((prev) => Math.max(0, prev - 1)), 1000);
+    if (mode !== "exam" || timeLeft === null || timeLeft <= 0 || submitted) return;
+    const timer = setInterval(() => setTimeLeft((prev) => (prev === null ? null : Math.max(0, prev - 1))), 1000);
     return () => clearInterval(timer);
   }, [mode, submitted, timeLeft]);
 
@@ -69,8 +77,9 @@ export default function MockSessionPage() {
   const showPracticeFeedback = isPractice && selectedOption !== undefined;
 
   const answeredCount = Object.keys(selected).length;
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
+  const tick = timeLeft ?? 0;
+  const minutes = Math.floor(tick / 60);
+  const seconds = tick % 60;
 
   async function onSubmit() {
     if (!mock || !questions.length) return;
@@ -110,7 +119,7 @@ export default function MockSessionPage() {
           </p>
           {mode === "exam" ? (
             <p className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-              {minutes}:{String(seconds).padStart(2, "0")}
+              {timeLeft === null ? "…" : `${minutes}:${String(seconds).padStart(2, "0")}`}
             </p>
           ) : null}
         </div>

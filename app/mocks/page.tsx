@@ -18,8 +18,6 @@ const examFlow = [
 
 export default function MocksPage() {
   const { mocks, loading } = usePortalLiveData();
-  const practice = mocks.filter((item) => item.revealAnswersInPractice);
-  const exams = mocks.filter((item) => item.examMode);
 
   return (
     <PortalShell
@@ -36,22 +34,6 @@ export default function MocksPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 space-y-2">
-            {practice.slice(0, 4).map((mock) => (
-              <Link
-                href={`/mocks/${mock.id}?mode=practice`}
-                key={mock.id}
-                className="block rounded-lg border border-slate-200 p-3 text-sm hover:bg-slate-50"
-              >
-                {mock.title} • {mock.questionIds.length} questions
-              </Link>
-            ))}
-            {!loading && practice.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
-                No practice mocks published yet.
-              </p>
-            ) : null}
-          </div>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -63,23 +45,54 @@ export default function MocksPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 space-y-2">
-            {exams.slice(0, 4).map((mock) => (
-              <Link
-                href={`/mocks/${mock.id}?mode=exam`}
-                key={mock.id}
-                className="block rounded-lg border border-slate-200 p-3 text-sm hover:bg-slate-50"
-              >
-                {mock.title} • {mock.durationMinutes} minutes
-              </Link>
-            ))}
-            {!loading && exams.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
-                No exam mocks published yet.
-              </p>
-            ) : null}
-          </div>
         </article>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-semibold">Available mocks</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Choose practice for immediate feedback, or exam for a timed paper. Every published mock supports both.
+        </p>
+        <div className="mt-4 space-y-3">
+          {mocks.map((mock) => {
+            const qCount = Array.isArray(mock.questionIds) ? mock.questionIds.length : 0;
+            return (
+              <div
+                key={mock.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">{mock.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {qCount} questions • {mock.durationMinutes} min (exam)
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/mocks/${mock.id}?mode=practice`}
+                    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    Practice
+                  </Link>
+                  <Link
+                    href={`/mocks/${mock.id}?mode=exam`}
+                    className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  >
+                    Exam
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+          {!loading && mocks.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+              No mocks published yet. Ask your tutor to publish mocks in Admin.
+            </p>
+          ) : null}
+          {loading ? (
+            <p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-600">Loading mocks…</p>
+          ) : null}
+        </div>
       </section>
     </PortalShell>
   );
