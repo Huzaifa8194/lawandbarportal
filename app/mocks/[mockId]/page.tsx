@@ -2,33 +2,71 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PortalShell from "@/app/components/portal-shell";
-import { usePortalLiveData } from "@/app/lib/use-portal-live";
+import { useAuth } from "@/app/context/auth-context";
+import type { Mcq, MockExam } from "@/lib/types/admin";
 import { studentApi } from "@/lib/services/student-api";
 
+function resolveParamId(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return typeof value === "string" ? value : "";
+}
+
 export default function MockSessionPage() {
-  const params = useParams<{ mockId: string }>();
+  const params = useParams<{ mockId: string | string[] }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const mode = searchParams.get("mode") === "practice" ? "practice" : "exam";
-  const { mocks, mcqs, loading } = usePortalLiveData();
+  const { user, loading: authLoading } = useAuth();
 
-  const mock = mocks.find((item) => item.id === params.mockId);
-  const questionIds = useMemo(
-    () => (Array.isArray(mock?.questionIds) ? mock.questionIds : []),
-    [mock?.questionIds],
-  );
-  const questions = useMemo(
-    () => mcqs.filter((item) => questionIds.includes(item.id)),
-    [mcqs, questionIds],
-  );
+  const mockId = resolveParamId(params.mockId);
+  const mode = searchParams.get("mode") === "practice" ? "practice" : "exam";
+
+  const [mock, setMock] = useState<MockExam | null>(null);
+  const [questions, setQuestions] = useState<Mcq[]>([]);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
-  /** null = exam timer not initialized yet (avoids treating 0 as "expired" on first paint). */
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setSessionError("You need to be signed in to start a mock.");
+      setSessionLoading(false);
+      return;
+    }
+    if (!mockId) {
+      setSessionError("Invalid mock link.");
+      setSessionLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setSessionLoading(true);
+        setSessionError(null);
+        const data = await studentApi.getMockSession(mockId);
+        if (cancelled) return;
+        setMock(data.mock);
+        setQuestions(data.questions);
+      } catch (e) {
+        if (!cancelled) {
+          setSessionError(e instanceof Error ? e.message : "Could not load this mock.");
+        }
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, mockId]);
 
   useEffect(() => {
     if (mode !== "exam" || !mock) {
@@ -38,20 +76,51 @@ export default function MockSessionPage() {
     setTimeLeft(Math.max(0, mock.durationMinutes * 60));
   }, [mode, mock]);
 
+  const onSubmit = useCallback(async () => {
+    if (!mock || !questions.length) return;
+
+    const answers = questions.map((question) => {
+      const choice = selected[question.id];
+      return {
+        mcqId: question.id,
+        selectedOption: choice ?? -1,
+        correctOption: question.correctOption,
+        isCorrect: choice === question.correctOption,
+      };
+    });
+    const correct = answers.filter((item) => item.isCorrect).length;
+    const score = Math.round((correct / questions.length) * 100);
+    const id = mock.id;
+    const response = (await studentApi.createAttempt({
+      mockId: id,
+      mode,
+      score,
+      totalQuestions: questions.length,
+      answers,
+    })) as { id: string };
+    setSubmitted(true);
+    router.push(`/mocks/${id}/result?attemptId=${response.id}`);
+  }, [mock, questions, selected, mode, router]);
+
+  const submitRef = useRef(onSubmit);
+  submitRef.current = onSubmit;
+
   useEffect(() => {
     if (mode !== "exam" || timeLeft === null || timeLeft <= 0 || submitted) return;
-    const timer = setInterval(() => setTimeLeft((prev) => (prev === null ? null : Math.max(0, prev - 1))), 1000);
+    const timer = setInterval(
+      () => setTimeLeft((prev) => (prev === null ? null : Math.max(0, prev - 1))),
+      1000,
+    );
     return () => clearInterval(timer);
   }, [mode, submitted, timeLeft]);
 
   useEffect(() => {
     if (mode === "exam" && timeLeft === 0 && !submitted && questions.length) {
-      void onSubmit();
+      void submitRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
+  }, [mode, timeLeft, submitted, questions.length]);
 
-  if (loading) {
+  if (authLoading || sessionLoading) {
     return (
       <PortalShell title="Loading mock..." subtitle="Preparing your session">
         <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
@@ -61,9 +130,12 @@ export default function MockSessionPage() {
     );
   }
 
-  if (!mock || !questions.length) {
+  if (sessionError || !mock || !questions.length) {
     return (
-      <PortalShell title="Mock unavailable" subtitle="This mock has no published questions yet.">
+      <PortalShell
+        title="Mock unavailable"
+        subtitle={sessionError ?? "This mock has no questions yet, or you do not have access."}
+      >
         <Link href="/mocks" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
           Back to mocks
         </Link>
@@ -80,32 +152,6 @@ export default function MockSessionPage() {
   const tick = timeLeft ?? 0;
   const minutes = Math.floor(tick / 60);
   const seconds = tick % 60;
-
-  async function onSubmit() {
-    if (!mock || !questions.length) return;
-
-    const answers = questions.map((question) => {
-      const choice = selected[question.id];
-      return {
-        mcqId: question.id,
-        selectedOption: choice ?? -1,
-        correctOption: question.correctOption,
-        isCorrect: choice === question.correctOption,
-      };
-    });
-    const correct = answers.filter((item) => item.isCorrect).length;
-    const score = Math.round((correct / questions.length) * 100);
-    const mockId = mock.id;
-    const response = (await studentApi.createAttempt({
-      mockId,
-      mode,
-      score,
-      totalQuestions: questions.length,
-      answers,
-    })) as { id: string };
-    setSubmitted(true);
-    router.push(`/mocks/${mockId}/result?attemptId=${response.id}`);
-  }
 
   return (
     <PortalShell
@@ -133,6 +179,7 @@ export default function MockSessionPage() {
             const showWrong = showPracticeFeedback && selectedThis && !correctThis;
             return (
               <button
+                type="button"
                 key={`${current.id}-${optionIndex}`}
                 onClick={() => setSelected((prev) => ({ ...prev, [current.id]: optionIndex }))}
                 className={`block w-full rounded-lg border px-3 py-2 text-left text-sm ${
@@ -160,18 +207,21 @@ export default function MockSessionPage() {
 
         <div className="mt-5 flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={() => setIndex((prev) => Math.max(0, prev - 1))}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             Previous
           </button>
           <button
+            type="button"
             onClick={() => setIndex((prev) => Math.min(questions.length - 1, prev + 1))}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             Next
           </button>
           <button
+            type="button"
             onClick={() => void onSubmit()}
             disabled={submitted}
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"

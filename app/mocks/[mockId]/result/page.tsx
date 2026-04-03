@@ -33,8 +33,8 @@ export default function MockResultPage() {
               Score: <span className="font-semibold text-slate-900">{attempt.score}%</span>
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              Correct answers: {attempt.answers.filter((item) => item.isCorrect).length} /{" "}
-              {attempt.totalQuestions}
+              Correct answers: {(attempt.answers ?? []).filter((item) => item.isCorrect).length} /{" "}
+              {attempt.totalQuestions ?? (attempt.answers?.length ?? 0)}
             </p>
             <div className="mt-4 flex gap-2">
               <Link href="/mocks" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
@@ -46,7 +46,7 @@ export default function MockResultPage() {
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-semibold">Answer Review</h3>
             <div className="mt-3 space-y-2">
-              {attempt.answers.map((answer, index) => (
+              {(attempt.answers ?? []).map((answer, index) => (
                 <div
                   key={`${answer.mcqId}-${index}`}
                   className={`rounded-lg border px-3 py-2 text-sm ${

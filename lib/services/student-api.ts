@@ -1,6 +1,7 @@
 "use client";
 
 import { auth } from "@/lib/firebase";
+import type { Mcq, MockExam } from "@/lib/types/admin";
 
 async function headers() {
   const user = auth.currentUser;
@@ -26,6 +27,8 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
 export const studentApi = {
   listAttempts: () => request("/api/student/attempts"),
   createAttempt: (payload: unknown) => request("/api/student/attempts", "POST", payload),
+  getMockSession: (mockId: string) =>
+    request<{ mock: MockExam; questions: Mcq[] }>(`/api/student/mocks/${encodeURIComponent(mockId)}`),
   getPdfState: (bookId: string) => request(`/api/student/pdf/${bookId}`),
   savePdfState: (bookId: string, payload: unknown) =>
     request(`/api/student/pdf/${bookId}`, "PUT", payload),

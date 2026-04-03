@@ -53,8 +53,12 @@ export function usePortalLiveData() {
         setVideos(videosResp.filter((item) => item.published));
 
         if (user) {
-          const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
-          if (mounted) setAttempts(attemptsResp);
+          try {
+            const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
+            if (mounted) setAttempts(attemptsResp);
+          } catch {
+            if (mounted) setAttempts([]);
+          }
         } else {
           setAttempts([]);
         }
