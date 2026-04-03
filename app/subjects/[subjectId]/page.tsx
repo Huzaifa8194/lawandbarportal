@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SpecialZoomLevel, Viewer, ViewMode, Worker } from "@react-pdf-viewer/core";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
+import "@react-pdf-viewer/core/lib/styles/index.css";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -33,6 +35,8 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
     </button>
   );
 }
+
+const PDF_WORKER_URL = "https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs";
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
@@ -183,6 +187,13 @@ export default function SubjectWorkspacePage() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs text-white/55">
+                <Link
+                  href={backTrackHref}
+                  className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-white/80 hover:bg-white/10"
+                >
+                  <span aria-hidden>←</span>
+                  <span>Back</span>
+                </Link>
                 <Link href={backTrackHref} className="hover:text-[#26d9c0]">
                   {subject?.track || "FLK"}
                 </Link>
@@ -425,11 +436,18 @@ export default function SubjectWorkspacePage() {
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
-                    <iframe
-                      src={pdfUrl}
-                      title={relatedBook.title}
-                      className="h-[60vh] min-h-[420px] w-full rounded-[12px] bg-white sm:h-[70vh]"
-                    />
+                    <div className="h-[60vh] min-h-[420px] w-full overflow-hidden rounded-[12px] bg-white text-slate-900 sm:h-[70vh]">
+                      <Worker workerUrl={PDF_WORKER_URL}>
+                        <Viewer
+                          key={`${relatedBook.id}-${currentPage}`}
+                          fileUrl={relatedBook.fileUrl}
+                          initialPage={Math.max(0, currentPage - 1)}
+                          defaultScale={SpecialZoomLevel.PageFit}
+                          viewMode={ViewMode.DualPageWithCover}
+                          onPageChange={(event) => setCurrentPage(event.currentPage + 1)}
+                        />
+                      </Worker>
+                    </div>
                   </div>
                   <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
                     Page {currentPage}
