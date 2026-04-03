@@ -2,94 +2,51 @@
 
 import Link from "next/link";
 import PortalShell from "../components/portal-shell";
-import { usePortalLiveData } from "../lib/use-portal-live";
+import SubjectsList from "../components/subjects-list";
 
 export default function SubjectsPage() {
-  const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData();
-
   return (
     <PortalShell
-      title="Subjects: Books + Audio Together"
-      subtitle="Each SQE subject groups the PDF book and related audio lessons in one place so students can read and listen simultaneously."
+      title="FLK Subjects"
+      subtitle="Choose a track to open only FLK 1 or FLK 2 subjects."
     >
-      <section className="space-y-4">
-        {subjects.map((subject) => {
-          const book = books.find((item) => item.subjectId === subject.id);
-          const subjectAudios = audios.filter((item) => item.subjectId === subject.id);
-          const subjectVideos = videos.filter((item) => item.subjectId === subject.id);
-          const subjectMocks = mocks.filter((item) => item.subjectIds.includes(subject.id));
-          return (
-          <article
-            key={subject.id}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {subject.track}
-                </p>
-                <h3 className="mt-1 text-lg font-semibold">{subject.name}</h3>
-              </div>
-              <Link
-                href={`/subjects/${subject.id}`}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
-              >
-                Open Subject Workspace
-              </Link>
-            </div>
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">Book Viewer</p>
-                <p className="mt-2 text-sm text-slate-600">{book?.title || "No book uploaded yet."}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    href={`/subjects/${subject.id}`}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                  >
-                    Read + Study Tools
-                  </Link>
-                </div>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">Audio Lessons ({subjectAudios.length})</p>
-                <div className="mt-2 space-y-2">
-                  {subjectAudios.slice(0, 3).map((audio) => (
-                    <p key={audio.id} className="text-sm text-slate-600">
-                      {audio.title}
-                    </p>
-                  ))}
-                  {!subjectAudios.length ? <p className="text-sm text-slate-600">No audio uploaded yet.</p> : null}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Link href={`/subjects/${subject.id}`} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-                    Open all audios
-                  </Link>
-                </div>
-              </section>
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">Videos & Mocks</p>
-                <p className="mt-2 text-sm text-slate-600">Videos: {subjectVideos.length}</p>
-                <p className="text-sm text-slate-600">Mocks: {subjectMocks.length}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link href={`/subjects/${subject.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-                    Watch videos
-                  </Link>
-                  <Link href="/mocks" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-                    Start mock
-                  </Link>
-                </div>
-              </section>
-            </div>
-          </article>
-          );
-        })}
-        {!loading && subjects.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">
-            No published subjects available yet.
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Track</p>
+          <h3 className="mt-1 text-lg font-semibold">FLK1</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Open only FLK 1 subjects and related learning resources.
           </p>
-        ) : null}
+          <Link
+            href="/subjects/flk1"
+            className="mt-4 inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Open FLK1
+          </Link>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Track</p>
+          <h3 className="mt-1 text-lg font-semibold">FLK2</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Open only FLK 2 subjects and related learning resources.
+          </p>
+          <Link
+            href="/subjects/flk2"
+            className="mt-4 inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Open FLK2
+          </Link>
+        </article>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-lg font-semibold">FLK1 Subjects</h3>
+        <SubjectsList track="FLK 1" />
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-lg font-semibold">FLK2 Subjects</h3>
+        <SubjectsList track="FLK 2" />
       </section>
     </PortalShell>
   );
