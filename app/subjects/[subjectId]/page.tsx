@@ -180,7 +180,7 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
-  const pdfUrl = relatedBook ? `${relatedBook.fileUrl}#page=${currentPage}&view=FitH` : null;
+  const pdfUrl = relatedBook ? `/api/student/books/${encodeURIComponent(relatedBook.id)}/file` : null;
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
 
   return (
