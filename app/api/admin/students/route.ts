@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { getSqeBundlePurchaserEmailSet } from "../_lib/sqe-bundle-purchase";
-//random comment
+//random comment 2
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
