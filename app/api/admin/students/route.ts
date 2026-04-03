@@ -7,7 +7,13 @@ export async function GET(request: NextRequest) {
     await verifyAdminRequest(request);
     const snapshot = await adminDb.collection("users").get();
     const rows = snapshot.docs
-      .map((item) => ({ uid: item.id, ...item.data() }))
+      .map(
+        (item) =>
+          ({
+            uid: item.id,
+            ...(item.data() as { isAdmin?: boolean; [key: string]: unknown }),
+          }) as { uid: string; isAdmin?: boolean; [key: string]: unknown },
+      )
       .filter((item) => !item.isAdmin);
     return NextResponse.json(rows);
   } catch (error) {
