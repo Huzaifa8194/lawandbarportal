@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
@@ -57,7 +57,11 @@ export default function SubjectWorkspacePage() {
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
+  const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const pdfBlobRef = useRef<string | null>(null);
+  const lastLoadedBookRef = useRef<string | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -83,30 +87,60 @@ export default function SubjectWorkspacePage() {
     const controller = new AbortController();
 
     const loadPdfBlob = async () => {
-      if (!relatedBookId || !user) {
+      if (!relatedBookId) {
+        setPdfLoading(false);
+        setPdfLoadError(null);
+        if (pdfBlobRef.current) {
+          URL.revokeObjectURL(pdfBlobRef.current);
+          pdfBlobRef.current = null;
+        }
         setPdfBlobUrl(null);
+        lastLoadedBookRef.current = null;
         return;
       }
+      if (!user) return;
+      if (lastLoadedBookRef.current !== relatedBookId && pdfBlobRef.current) {
+        URL.revokeObjectURL(pdfBlobRef.current);
+        pdfBlobRef.current = null;
+        setPdfBlobUrl(null);
+      }
+      lastLoadedBookRef.current = relatedBookId;
+
+      setPdfLoading(true);
+      setPdfLoadError(null);
       try {
-        const token = await user.getIdToken();
-        const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`PDF request failed (${response.status})`);
+        let loaded = false;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const token = await user.getIdToken(attempt > 0);
+          const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+            cache: "no-store",
+          });
+          if (response.ok) {
+            const blob = await response.blob();
+            if (cancelled) return;
+            const nextUrl = URL.createObjectURL(blob);
+            if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
+            pdfBlobRef.current = nextUrl;
+            setPdfBlobUrl(nextUrl);
+            loaded = true;
+            break;
+          }
+
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 450 * (attempt + 1)));
+          }
         }
-        const blob = await response.blob();
-        if (cancelled) return;
-        const nextUrl = URL.createObjectURL(blob);
-        if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
-        pdfBlobRef.current = nextUrl;
-        setPdfBlobUrl(nextUrl);
+        if (!loaded && !cancelled) {
+          setPdfLoadError("PDF could not be loaded right now. Tap retry.");
+        }
       } catch {
         if (!cancelled) {
-          setPdfBlobUrl(null);
-          setPdfMessage("Failed to load PDF. Please refresh or try again.");
+          setPdfLoadError("PDF could not be loaded right now. Tap retry.");
         }
+      } finally {
+        if (!cancelled) setPdfLoading(false);
       }
     };
 
@@ -115,7 +149,7 @@ export default function SubjectWorkspacePage() {
       cancelled = true;
       controller.abort();
     };
-  }, [relatedBookId, user]);
+  }, [relatedBookId, user, pdfReloadKey]);
 
   useEffect(() => {
     return () => {
@@ -511,6 +545,17 @@ export default function SubjectWorkspacePage() {
                   <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
                     Page {currentPage}
                   </div>
+                </div>
+              ) : relatedBook ? (
+                <div className="mx-auto max-w-2xl rounded-xl border border-white/20 bg-white/5 p-8 text-center text-sm text-white/75">
+                  <p>{pdfLoading ? "Loading PDF..." : pdfLoadError || "Preparing your PDF..."}</p>
+                  <button
+                    type="button"
+                    onClick={() => setPdfReloadKey((prev) => prev + 1)}
+                    className="mt-3 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/15"
+                  >
+                    Retry PDF load
+                  </button>
                 </div>
               ) : (
                 <div className="mx-auto max-w-2xl rounded-xl border border-dashed border-white/20 bg-white/5 p-8 text-center text-sm text-white/75">
