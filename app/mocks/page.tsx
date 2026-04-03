@@ -4,95 +4,156 @@ import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
 import Link from "next/link";
 
-const practiceFlow = [
-  "One question at a time",
-  "Immediate answer and explanation",
-  "Navigate next/previous",
-];
-
-const examFlow = [
-  "Full paper with timer",
-  "No answers until submission",
-  "Final score and answer review",
-];
-
 export default function MocksPage() {
-  const { mocks, loading } = usePortalLiveData();
+  const { mocks, loading } = usePortalLiveData({ includeAttempts: false });
 
   return (
     <PortalShell
-      title="Mock Exams & MCQs"
-      subtitle="Students can switch between practice mode and full exam mode with tracked scores and review."
+      title="Mock Exams"
+      subtitle="Practice with exam-style MCQs to test your knowledge."
     >
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold">Practice Mode</h3>
-          <ul className="mt-4 space-y-2 text-sm text-slate-600">
-            {practiceFlow.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-200 p-3">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </article>
+      <section className="grid gap-4 md:grid-cols-2">
+        {mocks.map((mock) => {
+          const qCount = Array.isArray(mock.questionIds) ? mock.questionIds.length : 0;
+          return (
+            <article
+              key={mock.id}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white">
+                    <svg className="size-5 text-slate-700" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M9 16h.01M12 16h.01M15 16h.01M9 12h.01M12 12h.01M15 12h.01"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold">Exam Mode</h3>
-          <ul className="mt-4 space-y-2 text-sm text-slate-600">
-            {examFlow.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-200 p-3">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </article>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-semibold">Available mocks</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Choose practice for immediate feedback, or exam for a timed paper. Every published mock supports both.
-        </p>
-        <div className="mt-4 space-y-3">
-          {mocks.map((mock) => {
-            const qCount = Array.isArray(mock.questionIds) ? mock.questionIds.length : 0;
-            return (
-              <div
-                key={mock.id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">{mock.title}</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {qCount} questions • {mock.durationMinutes} min (exam)
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/mocks/${mock.id}?mode=practice`}
-                    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
-                  >
-                    Practice
-                  </Link>
-                  <Link
-                    href={`/mocks/${mock.id}?mode=exam`}
-                    className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                  >
-                    Exam
-                  </Link>
+                  <div className="min-w-0">
+                    <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+                      {mock.track}
+                    </span>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-          {!loading && mocks.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-              No mocks published yet. Ask your tutor to publish mocks in Admin.
-            </p>
-          ) : null}
-          {loading ? (
-            <p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-600">Loading mocks…</p>
-          ) : null}
-        </div>
+
+              <h3 className="mt-4 truncate text-xl font-semibold text-slate-900">{mock.title}</h3>
+              <p className="mt-1 truncate text-sm text-slate-600">{mock.id}</p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
+                <span className="inline-flex items-center gap-2">
+                  <svg className="size-4 text-slate-700" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M7 3h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M9 8h6M9 12h6M9 16h4"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {qCount} questions
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <svg className="size-4 text-slate-700" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M12 8v4l2 2"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {mock.durationMinutes} min
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Link
+                  href={`/mocks/${mock.id}?mode=practice`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M8 5v14l12-7-12-7Z"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Practice
+                </Link>
+                <Link
+                  href={`/mocks/${mock.id}?mode=exam`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M12 8v4l2 2"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Exam Mode
+                </Link>
+              </div>
+            </article>
+          );
+        })}
+
+        {!loading && mocks.length === 0 ? (
+          <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
+            No mocks published yet. Ask your tutor to publish mocks in Admin.
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+            Loading mocks…
+          </div>
+        ) : null}
       </section>
     </PortalShell>
   );
