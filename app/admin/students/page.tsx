@@ -44,6 +44,11 @@ export default function AdminStudentsPage() {
 
   const toggleAccess = async (student: UserProfile, nextEnabled: boolean) => {
     try {
+      // Only SQE-bundle buyers are allowed to have access enabled.
+      if (nextEnabled && student.sqeBundlePurchased !== true) {
+        setFeedback({ type: "error", message: "This student hasn't purchased the SQE bundle yet." });
+        return;
+      }
       await adminApi.updateStudentAccess(student.uid, nextEnabled);
       await adminApi.logAudit({
         action: nextEnabled ? "enable_access" : "disable_access",
@@ -100,7 +105,8 @@ export default function AdminStudentsPage() {
             </div>
             <div className="mt-4 space-y-3">
               {filtered.map((student) => {
-                const enabled = student.accessEnabled !== false;
+                const sqeEligible = student.sqeBundlePurchased === true;
+                const enabled = sqeEligible && student.accessEnabled !== false;
                 return (
                   <div
                     key={student.uid}
@@ -119,6 +125,7 @@ export default function AdminStudentsPage() {
                       </span>
                       <button
                         onClick={() => toggleAccess(student, !enabled)}
+                        disabled={!sqeEligible && enabled === false}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
                       >
                         {enabled ? "Disable access" : "Enable access"}

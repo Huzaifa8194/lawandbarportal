@@ -6,6 +6,7 @@ export type UserProfile = {
   fullName?: string;
   isAdmin?: boolean;
   accessEnabled?: boolean;
+  sqeBundlePurchased?: boolean;
   createdAt?: string;
 };
 
