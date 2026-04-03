@@ -36,7 +36,10 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
   );
 }
 
-const PDF_WORKER_URL = "https://unpkg.com/pdfjs-dist@5.4.624/build/pdf.worker.min.mjs";
+const PDF_WORKER_URL = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
