@@ -2,6 +2,7 @@
 
 import { onAuthStateChanged } from "firebase/auth";
 import type { User } from "firebase/auth";
+import type { StudentAccessDebugResponse } from "@/lib/types/admin";
 import { auth } from "@/lib/firebase";
 
 /**
@@ -60,6 +61,7 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
 
 export const adminApi = {
   listStudents: () => request("/api/admin/students"),
+  getStudentAccessDebug: (uid: string) => request<StudentAccessDebugResponse>(`/api/admin/students/${uid}/access-debug`),
   updateStudentAccess: (uid: string, accessEnabled: boolean) =>
     request(`/api/admin/students/${uid}/access`, "PATCH", { accessEnabled }),
   listAccessCodes: () => request("/api/admin/access-codes"),

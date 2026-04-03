@@ -1,12 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminGuard from "@/app/components/admin/admin-guard";
 import AdminShell from "@/app/components/admin/admin-shell";
 import FormSection from "@/app/components/admin/form-section";
 import ToastInline from "@/app/components/admin/toast-inline";
 import { adminApi } from "@/lib/services/admin-api";
-import type { AccessCode, UserProfile } from "@/lib/types/admin";
+import type { AccessCode, StudentAccessDebugResponse, UserProfile } from "@/lib/types/admin";
+
+function ExplanationLine({ text }: { text: string }) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return (
+    <p className="text-sm leading-relaxed text-slate-700">
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} className="font-semibold text-slate-900">
+            {part}
+          </strong>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </p>
+  );
+}
+
+function JsonBlock({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80">
+      <p className="border-b border-slate-200 bg-slate-100/80 px-3 py-2 text-xs font-semibold text-slate-700">{title}</p>
+      <pre className="max-h-64 overflow-auto p-3 text-xs leading-relaxed text-slate-800">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </div>
+  );
+}
 
 type BundleFilter = "all" | "purchased" | "none";
 type AccessFilter = "all" | "on" | "off";
@@ -26,6 +54,10 @@ export default function AdminStudentsPage() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
   );
+  const [debugStudent, setDebugStudent] = useState<UserProfile | null>(null);
+  const [debugData, setDebugData] = useState<StudentAccessDebugResponse | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   const load = async () => {
     setFeedback(null);
@@ -141,6 +173,37 @@ export default function AdminStudentsPage() {
     setCodeStatus("all");
   };
 
+  const closeDebug = useCallback(() => {
+    setDebugStudent(null);
+    setDebugData(null);
+    setDebugError(null);
+    setDebugLoading(false);
+  }, []);
+
+  const openDebug = async (student: UserProfile) => {
+    setDebugStudent(student);
+    setDebugData(null);
+    setDebugError(null);
+    setDebugLoading(true);
+    try {
+      const data = await adminApi.getStudentAccessDebug(student.uid);
+      setDebugData(data);
+    } catch (e) {
+      setDebugError(e instanceof Error ? e.message : "Failed to load debug data.");
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!debugStudent) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDebug();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [debugStudent, closeDebug]);
+
   const toggleAccess = async (student: UserProfile, nextEnabled: boolean) => {
     try {
       // Only SQE-bundle buyers are allowed to have access enabled.
@@ -197,7 +260,7 @@ export default function AdminStudentsPage() {
               <div>
                 <h3 className="text-lg font-semibold">Student Accounts</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Showing {filteredStudents.length} of {students.length}
+                  Showing {filteredStudents.length} of {students.length} · click a name for access / bundle debug
                 </p>
               </div>
               {filtersActive ? (
@@ -269,7 +332,13 @@ export default function AdminStudentsPage() {
                     key={student.uid}
                     className="rounded-xl border border-slate-200 p-4"
                   >
-                    <p className="font-medium">{student.fullName || "Unnamed Student"}</p>
+                    <button
+                      type="button"
+                      onClick={() => openDebug(student)}
+                      className="text-left font-medium text-slate-900 underline decoration-dotted decoration-slate-400 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400"
+                    >
+                      {student.fullName || "Unnamed Student"}
+                    </button>
                     <p className="text-sm text-slate-600">{student.email}</p>
                     <p className="mt-1 text-xs text-slate-500">UID: {student.uid}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -376,6 +445,190 @@ export default function AdminStudentsPage() {
             </div>
           </article>
         </section>
+
+        {debugStudent ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="access-debug-title"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label="Close"
+              onClick={closeDebug}
+            />
+            <div className="relative z-10 flex max-h-[min(92vh,900px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                <div>
+                  <h2 id="access-debug-title" className="text-lg font-semibold text-slate-900">
+                    Access debug
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {debugStudent.fullName || "Unnamed"} · {debugStudent.email}
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs text-slate-500">{debugStudent.uid}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDebug}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                {debugLoading ? (
+                  <p className="text-sm text-slate-600">Loading Firestore data…</p>
+                ) : debugError ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{debugError}</p>
+                ) : debugData ? (
+                  <div className="space-y-5">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <div
+                        className={`rounded-xl border px-3 py-3 ${
+                          debugData.summary.effectiveAccessEnabled
+                            ? "border-green-300 bg-green-50"
+                            : "border-red-200 bg-red-50"
+                        }`}
+                      >
+                        <p className="text-xs font-medium text-slate-600">Effective portal access</p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {debugData.summary.effectiveAccessEnabled ? "Enabled" : "Disabled"}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                          Same rule as the list: bundle purchased and <code className="rounded bg-white/80 px-0.5">accessEnabled !== false</code>
+                        </p>
+                      </div>
+                      <div
+                        className={`rounded-xl border px-3 py-3 ${
+                          debugData.summary.sqeBundlePurchased
+                            ? "border-indigo-200 bg-indigo-50"
+                            : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <p className="text-xs font-medium text-slate-600">SQE bundle (orders)</p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {debugData.summary.sqeBundlePurchased ? "Found" : "Not found"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-600">
+                          IDs: {debugData.constants.sqeBundleBookIds.join(", ")}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                        <p className="text-xs font-medium text-slate-600">Raw user.accessEnabled</p>
+                        <p className="mt-1 font-mono text-sm font-semibold">
+                          {debugData.summary.rawAccessEnabled === null
+                            ? "undefined"
+                            : String(debugData.summary.rawAccessEnabled)}
+                        </p>
+                        {debugData.summary.accessExplicitlyFalse ? (
+                          <p className="mt-1 text-[11px] font-medium text-red-700">Explicitly set to false</p>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-slate-600">Not false → allowed if bundle ok</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">Why</p>
+                      <div className="mt-2 space-y-2">
+                        {debugData.explanation.map((line, i) => (
+                          <ExplanationLine key={i} text={line} />
+                        ))}
+                      </div>
+                    </div>
+
+                    {debugData.orderQueryErrors.length ? (
+                      <div className="rounded-xl border border-red-200 bg-red-50/80 p-3">
+                        <p className="text-xs font-semibold text-red-900">Order query errors</p>
+                        <ul className="mt-1 list-inside list-disc text-sm text-red-800">
+                          {debugData.orderQueryErrors.map((err, i) => (
+                            <li key={i}>
+                              {err.collection}: {err.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <JsonBlock title={`users/${debugData.uid} (full document)`} value={debugData.user} />
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold text-slate-700">
+                        bookorders (Stripe) — where userId == normalized email
+                      </p>
+                      {debugData.orders.bookorders.length === 0 ? (
+                        <p className="text-sm text-slate-600">No documents.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {debugData.orders.bookorders.map((row) => (
+                            <div key={row.id}>
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs text-slate-600">bookorders/{row.id}</span>
+                                <span
+                                  className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+                                    row.matchesSqeBundle
+                                      ? "bg-green-100 text-green-900"
+                                      : "bg-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  {row.matchesSqeBundle ? "Counts toward bundle" : "Does not count"}
+                                </span>
+                              </div>
+                              {row.matchReasons.map((r, j) => (
+                                <p key={j} className="text-xs text-slate-600">
+                                  {r}
+                                </p>
+                              ))}
+                              <JsonBlock title="Document" value={row.data} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold text-slate-700">
+                        bookOrders (PayPal) — where userEmail == normalized email
+                      </p>
+                      {debugData.orders.bookOrders.length === 0 ? (
+                        <p className="text-sm text-slate-600">No documents.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {debugData.orders.bookOrders.map((row) => (
+                            <div key={row.id}>
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs text-slate-600">bookOrders/{row.id}</span>
+                                <span
+                                  className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+                                    row.matchesSqeBundle
+                                      ? "bg-green-100 text-green-900"
+                                      : "bg-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  {row.matchesSqeBundle ? "Counts toward bundle" : "Does not count"}
+                                </span>
+                              </div>
+                              {row.matchReasons.map((r, j) => (
+                                <p key={j} className="text-xs text-slate-600">
+                                  {r}
+                                </p>
+                              ))}
+                              <JsonBlock title="Document" value={row.data} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </AdminShell>
     </AdminGuard>
   );

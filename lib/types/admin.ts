@@ -10,6 +10,38 @@ export type UserProfile = {
   createdAt?: string;
 };
 
+/** `GET /api/admin/students/[uid]/access-debug` — admin-only bundle + access breakdown. */
+export type StudentAccessDebugResponse = {
+  uid: string;
+  user: { path: string; id: string; data: Record<string, unknown> } | null;
+  emailNormalized: string | null;
+  constants: { sqeBundleBookIds: string[] };
+  orders: {
+    bookorders: Array<{
+      id: string;
+      data: Record<string, unknown>;
+      bookId: string | null;
+      matchesSqeBundle: boolean;
+      matchReasons: string[];
+    }>;
+    bookOrders: Array<{
+      id: string;
+      data: Record<string, unknown>;
+      bookId: string | null;
+      matchesSqeBundle: boolean;
+      matchReasons: string[];
+    }>;
+  };
+  orderQueryErrors: { collection: string; message: string }[];
+  summary: {
+    sqeBundlePurchased: boolean;
+    rawAccessEnabled: boolean | null;
+    accessExplicitlyFalse: boolean;
+    effectiveAccessEnabled: boolean;
+  };
+  explanation: string[];
+};
+
 export type Subject = {
   id: string;
   name: string;

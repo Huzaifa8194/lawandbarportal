@@ -1,7 +1,7 @@
 import type { Firestore, QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 /** Matches Main website SQE checkout: `bookId` from `/sqe/bundle/checkout` is `"bundle"`. */
-const SQE_BUNDLE_BOOK_IDS = new Set(["bundle", "sqe-bundle"]);
+export const SQE_BUNDLE_BOOK_IDS = new Set(["bundle", "sqe-bundle"]);
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
