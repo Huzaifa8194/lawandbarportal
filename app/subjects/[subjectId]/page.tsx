@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SpecialZoomLevel, Viewer, ViewMode, Worker } from "@react-pdf-viewer/core";
+import { Document, Page, pdfjs } from "react-pdf";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
-import "@react-pdf-viewer/core/lib/styles/index.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -36,10 +37,7 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
   );
 }
 
-const PDF_WORKER_URL = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
@@ -59,6 +57,7 @@ export default function SubjectWorkspacePage() {
   const [highlightColor, setHighlightColor] = useState<PdfHighlight["color"]>("yellow");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
+  const [numPages, setNumPages] = useState<number>(1);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -423,10 +422,12 @@ export default function SubjectWorkspacePage() {
                   >
                     Prev
                   </button>
-                  <span>{currentPage}</span>
+                  <span>
+                    {currentPage}/{Math.max(1, numPages)}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    onClick={() => setCurrentPage((prev) => Math.min(Math.max(1, numPages), prev + 1))}
                     className="rounded border border-white/15 px-2 py-1 text-white/80 hover:bg-white/10"
                   >
                     Next
@@ -439,17 +440,23 @@ export default function SubjectWorkspacePage() {
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
-                    <div className="h-[60vh] min-h-[420px] w-full overflow-hidden rounded-[12px] bg-white text-slate-900 sm:h-[70vh]">
-                      <Worker workerUrl={PDF_WORKER_URL}>
-                        <Viewer
-                          key={`${relatedBook.id}-${currentPage}`}
-                          fileUrl={relatedBook.fileUrl}
-                          initialPage={Math.max(0, currentPage - 1)}
-                          defaultScale={SpecialZoomLevel.PageFit}
-                          viewMode={ViewMode.DualPageWithCover}
-                          onPageChange={(event) => setCurrentPage(event.currentPage + 1)}
+                    <div className="flex h-[60vh] min-h-[420px] w-full items-start justify-center overflow-auto rounded-[12px] bg-white p-2 text-slate-900 sm:h-[70vh] sm:p-4">
+                      <Document
+                        file={pdfUrl}
+                        loading={<p className="py-16 text-sm text-slate-500">Loading book...</p>}
+                        error={<p className="py-16 text-sm text-red-600">Unable to load PDF.</p>}
+                        onLoadSuccess={(info) => {
+                          setNumPages(info.numPages || 1);
+                          setCurrentPage((prev) => Math.min(Math.max(1, info.numPages || 1), prev));
+                        }}
+                      >
+                        <Page
+                          pageNumber={Math.max(1, Math.min(numPages, currentPage))}
+                          width={800}
+                          renderTextLayer
+                          renderAnnotationLayer
                         />
-                      </Worker>
+                      </Document>
                     </div>
                   </div>
                   <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
