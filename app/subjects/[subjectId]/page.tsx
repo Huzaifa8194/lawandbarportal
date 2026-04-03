@@ -273,6 +273,11 @@ export default function SubjectWorkspacePage() {
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
+  const iframePdfUrl = useMemo(() => {
+    if (!pdfUrl) return null;
+    // Ask built-in PDF viewers to hide side panels for a cleaner reading mode.
+    return `${pdfUrl}#navpanes=0&toolbar=1&statusbar=0&messages=0`;
+  }, [pdfUrl]);
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
 
   return (
@@ -535,7 +540,7 @@ export default function SubjectWorkspacePage() {
                       <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
                         <iframe
                           key={relatedBookId}
-                          src={pdfUrl}
+                          src={iframePdfUrl || undefined}
                           title={relatedBook?.title || "Study Book PDF"}
                           className="h-full w-full bg-white"
                         />
