@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import "@cyntler/react-doc-viewer/dist/index.css";
 import { AuthProvider } from "./context/auth-context";
 
 const geistSans = Geist({
