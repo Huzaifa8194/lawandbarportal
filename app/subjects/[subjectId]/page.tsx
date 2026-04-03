@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
+import { useEffect, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import { usePortalLiveData } from "../../lib/use-portal-live";
@@ -56,7 +55,8 @@ export default function SubjectWorkspacePage() {
   const [highlightColor, setHighlightColor] = useState<PdfHighlight["color"]>("yellow");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
-  const [pdfToken, setPdfToken] = useState<string | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const pdfBlobRef = useRef<string | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -72,20 +72,51 @@ export default function SubjectWorkspacePage() {
 
   useEffect(() => {
     let cancelled = false;
-    const loadToken = async () => {
-      if (!user) return;
+    const controller = new AbortController();
+
+    const loadPdfBlob = async () => {
+      if (!relatedBookId || !user) {
+        setPdfBlobUrl(null);
+        return;
+      }
       try {
         const token = await user.getIdToken();
-        if (!cancelled) setPdfToken(token);
+        const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`PDF request failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        if (cancelled) return;
+        const nextUrl = URL.createObjectURL(blob);
+        if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
+        pdfBlobRef.current = nextUrl;
+        setPdfBlobUrl(nextUrl);
       } catch {
-        // Keep the last good token so the viewer does not flicker/disappear.
+        if (!cancelled) {
+          setPdfBlobUrl(null);
+          setPdfMessage("Failed to load PDF. Please refresh or try again.");
+        }
       }
     };
-    void loadToken();
+
+    void loadPdfBlob();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [user]);
+  }, [relatedBookId, user]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobRef.current) {
+        URL.revokeObjectURL(pdfBlobRef.current);
+        pdfBlobRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!relatedBook?.id) {
@@ -195,23 +226,7 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
-  const pdfUrl =
-    relatedBookId && pdfToken
-      ? `/api/student/books/${encodeURIComponent(relatedBookId)}/file?token=${encodeURIComponent(pdfToken)}`
-      : null;
-  const pdfDocuments = useMemo(
-    () =>
-      pdfUrl
-        ? [
-            {
-              uri: pdfUrl,
-              fileType: "pdf",
-              fileName: `${relatedBook?.title || "Study Book"}.pdf`,
-            },
-          ]
-        : [],
-    [pdfUrl, relatedBook?.title],
-  );
+  const pdfUrl = relatedBookId ? pdfBlobUrl : null;
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
 
   return (
@@ -472,17 +487,11 @@ export default function SubjectWorkspacePage() {
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
                     <div className="flex h-[72vh] min-h-[540px] w-full items-start justify-center overflow-y-auto overflow-x-hidden rounded-[12px] bg-white p-2 text-slate-900 sm:h-[82vh] sm:min-h-[680px] sm:p-4">
                       <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
-                        <DocViewer
-                          documents={pdfDocuments}
-                          pluginRenderers={DocViewerRenderers}
-                          config={{
-                            header: {
-                              disableHeader: true,
-                              disableFileName: true,
-                              retainURLParams: false,
-                            },
-                          }}
-                          style={{ height: "100%", width: "100%" }}
+                        <iframe
+                          key={relatedBookId}
+                          src={pdfUrl}
+                          title={relatedBook?.title || "Study Book PDF"}
+                          className="h-full w-full bg-white"
                         />
                       </div>
                     </div>
