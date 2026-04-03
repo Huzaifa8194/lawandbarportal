@@ -81,7 +81,7 @@ export async function GET(
     headers.set("Cache-Control", "private, max-age=300");
     headers.set("Content-Length", String(pdfBuffer.byteLength));
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers,
     });
