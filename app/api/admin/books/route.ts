@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
     const snapshot = await adminDb.collection("books").orderBy("updatedAt", "desc").get();
-    const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    const rows = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }));
     return NextResponse.json(rows);
   } catch (error) {
     return NextResponse.json(

@@ -8,6 +8,12 @@ function coerceMcqDocId(entry: unknown): string | null {
     const t = entry.trim();
     return t.length ? t : null;
   }
+  if (typeof entry === "number" && Number.isFinite(entry)) {
+    return String(entry);
+  }
+  if (typeof entry === "bigint") {
+    return String(entry);
+  }
   if (!entry || typeof entry !== "object") return null;
   const o = entry as { id?: unknown; path?: unknown };
   if (typeof o.id === "string" && o.id.length > 0) return o.id;

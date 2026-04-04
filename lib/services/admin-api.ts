@@ -83,6 +83,6 @@ export const adminApi = {
   deleteMcq: (id: string) => request(`/api/admin/mcqs/${id}`, "DELETE"),
   listMocks: () => request("/api/admin/mocks"),
   upsertMock: (payload: unknown) => request("/api/admin/mocks", "POST", payload),
-  deleteMock: (id: string) => request(`/api/admin/mocks/${id}`, "DELETE"),
+  deleteMock: (id: string) => request(`/api/admin/mocks`, "DELETE", { id }),
   logAudit: (payload: unknown) => request("/api/admin/audit", "POST", payload),
 };
