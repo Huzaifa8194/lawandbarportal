@@ -30,12 +30,15 @@ export default function MockSessionPage() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  const autoSubmitDoneRef = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      setSessionError("You need to be signed in to start a mock.");
+      setSessionError("Sign in to start a mock exam.");
       setSessionLoading(false);
       return;
     }
@@ -54,6 +57,7 @@ export default function MockSessionPage() {
         if (cancelled) return;
         setMock(data.mock);
         setQuestions(data.questions);
+        autoSubmitDoneRef.current = false;
       } catch (e) {
         if (!cancelled) {
           setSessionError(e instanceof Error ? e.message : "Could not load this mock.");
@@ -77,7 +81,7 @@ export default function MockSessionPage() {
   }, [mode, mock]);
 
   const onSubmit = useCallback(async () => {
-    if (!mock || !questions.length) return;
+    if (!mock || !questions.length || submitting) return;
 
     const answers = questions.map((question) => {
       const choice = selected[question.id];
@@ -91,16 +95,24 @@ export default function MockSessionPage() {
     const correct = answers.filter((item) => item.isCorrect).length;
     const score = Math.round((correct / questions.length) * 100);
     const id = mock.id;
-    const response = (await studentApi.createAttempt({
-      mockId: id,
-      mode,
-      score,
-      totalQuestions: questions.length,
-      answers,
-    })) as { id: string };
-    setSubmitted(true);
-    router.push(`/mocks/${id}/result?attemptId=${response.id}`);
-  }, [mock, questions, selected, mode, router]);
+    setSubmitting(true);
+    try {
+      const response = (await studentApi.createAttempt({
+        mockId: id,
+        mode,
+        score,
+        totalQuestions: questions.length,
+        answers,
+      })) as { id: string };
+      setSubmitted(true);
+      router.push(
+        `/mocks/${encodeURIComponent(id)}/result?attemptId=${encodeURIComponent(response.id)}`,
+      );
+    } catch (e) {
+      setSubmitting(false);
+      setSessionError(e instanceof Error ? e.message : "Could not save your attempt. Try again.");
+    }
+  }, [mock, questions, selected, mode, router, submitting]);
 
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
@@ -115,16 +127,27 @@ export default function MockSessionPage() {
   }, [mode, submitted, timeLeft]);
 
   useEffect(() => {
-    if (mode === "exam" && timeLeft === 0 && !submitted && questions.length) {
+    if (
+      mode === "exam" &&
+      timeLeft === 0 &&
+      !submitted &&
+      questions.length &&
+      !submitting &&
+      !autoSubmitDoneRef.current
+    ) {
+      autoSubmitDoneRef.current = true;
       void submitRef.current();
     }
-  }, [mode, timeLeft, submitted, questions.length]);
+  }, [mode, timeLeft, submitted, questions.length, submitting]);
 
   if (authLoading || sessionLoading) {
     return (
-      <PortalShell title="Loading mock..." subtitle="Preparing your session">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-          Loading...
+      <PortalShell
+        title="Loading mock exam"
+        subtitle="Law & Bar SQE Study Portal"
+      >
+        <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+          Preparing questions and timer…
         </div>
       </PortalShell>
     );
@@ -134,11 +157,20 @@ export default function MockSessionPage() {
     return (
       <PortalShell
         title="Mock unavailable"
-        subtitle={sessionError ?? "This mock has no questions yet, or you do not have access."}
+        subtitle="Law & Bar SQE Study Portal"
       >
-        <Link href="/mocks" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          Back to mocks
-        </Link>
+        <div className="max-w-lg space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-slate-700">
+            {sessionError ??
+              "This mock has no questions yet, is unpublished, or your account does not have access."}
+          </p>
+          <Link
+            href="/mocks"
+            className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Back to mock exams
+          </Link>
+        </div>
       </PortalShell>
     );
   }
@@ -146,32 +178,53 @@ export default function MockSessionPage() {
   const current = questions[index];
   const selectedOption = selected[current.id];
   const isPractice = mode === "practice";
-  const showPracticeFeedback = isPractice && selectedOption !== undefined;
+  const instantFeedback =
+    isPractice && mock.revealAnswersInPractice !== false && selectedOption !== undefined;
+  const showPracticeFeedback = instantFeedback;
 
   const answeredCount = Object.keys(selected).length;
   const tick = timeLeft ?? 0;
   const minutes = Math.floor(tick / 60);
   const seconds = tick % 60;
 
+  const modeTitle = isPractice ? "Practice mode" : "Exam mode";
+  const modeDescription = isPractice
+    ? mock.revealAnswersInPractice === false
+      ? "Work through questions one at a time without instant marking. You will see the full score and explanations after you submit."
+      : "After you choose an answer, you will see whether it was correct and read the explanation before moving on."
+    : "Timed session: no marking until you submit. When time runs out, your attempt is submitted automatically. You will then see your score and a full review with explanations.";
+
   return (
     <PortalShell
-      title={`${mock.title}`}
-      subtitle={`${mode === "exam" ? "Exam Mode" : "Practice Mode"} • ${questions.length} questions`}
+      title={mock.title}
+      subtitle={`Law & Bar SQE Study Portal · ${mock.track} · ${modeTitle}`}
     >
+      <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <p className="font-medium text-slate-900">{modeTitle}</p>
+        <p className="mt-1 text-slate-600">{modeDescription}</p>
+        <p className="mt-2 text-xs text-slate-500">
+          {questions.length} question{questions.length === 1 ? "" : "s"} · {answeredCount} answered
+          {isPractice ? "" : ` · ${mock.durationMinutes} minute allowance`}
+        </p>
+      </div>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">
-            Question {index + 1} of {questions.length} • Answered: {answeredCount}
+          <p className="text-sm font-medium text-slate-700">
+            Question {index + 1} of {questions.length}
           </p>
           {mode === "exam" ? (
-            <p className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-              {timeLeft === null ? "…" : `${minutes}:${String(seconds).padStart(2, "0")}`}
+            <p
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium tabular-nums text-white"
+              aria-live="polite"
+            >
+              Time left {timeLeft === null ? "…" : `${minutes}:${String(seconds).padStart(2, "0")}`}
             </p>
           ) : null}
         </div>
 
-        <h3 className="text-lg font-semibold">{current.question}</h3>
-        <div className="mt-4 space-y-2">
+        <h2 className="text-lg font-semibold leading-snug text-slate-900">{current.question}</h2>
+        <div className="mt-4 space-y-2" role="group" aria-label="Answer choices">
           {current.options.map((option, optionIndex) => {
             const selectedThis = selectedOption === optionIndex;
             const correctThis = current.correctOption === optionIndex;
@@ -182,16 +235,17 @@ export default function MockSessionPage() {
                 type="button"
                 key={`${current.id}-${optionIndex}`}
                 onClick={() => setSelected((prev) => ({ ...prev, [current.id]: optionIndex }))}
-                className={`block w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                className={`block w-full rounded-lg border px-3 py-2.5 text-left text-sm transition ${
                   showCorrect
-                    ? "border-green-500 bg-green-50"
+                    ? "border-emerald-500 bg-emerald-50"
                     : showWrong
                       ? "border-red-500 bg-red-50"
                       : selectedThis
                         ? "border-slate-900 bg-slate-100"
-                        : "border-slate-200"
+                        : "border-slate-200 hover:border-slate-300"
                 }`}
               >
+                <span className="font-medium text-slate-500">{String.fromCharCode(65 + optionIndex)}. </span>
                 {option}
               </button>
             );
@@ -200,34 +254,52 @@ export default function MockSessionPage() {
 
         {showPracticeFeedback ? (
           <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-            {selectedOption === current.correctOption ? "Correct. " : "Incorrect. "}
+            {selectedOption === current.correctOption ? (
+              <span className="font-medium text-emerald-800">Correct. </span>
+            ) : (
+              <span className="font-medium text-red-800">Incorrect. </span>
+            )}
             {current.explanation}
+          </p>
+        ) : isPractice && mock.revealAnswersInPractice === false && selectedOption !== undefined ? (
+          <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+            Answer recorded. Full explanations will appear on the results screen after you submit.
           </p>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
           <button
             type="button"
             onClick={() => setIndex((prev) => Math.max(0, prev - 1))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
           >
             Previous
           </button>
           <button
             type="button"
             onClick={() => setIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
           >
             Next
           </button>
           <button
             type="button"
             onClick={() => void onSubmit()}
-            disabled={submitted}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            disabled={submitted || submitting}
+            className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            Submit Mock
+            {submitting
+              ? "Saving results…"
+              : isPractice
+                ? "Submit and view results"
+                : "Submit exam and view results"}
           </button>
+          <Link
+            href="/mocks"
+            className="inline-flex items-center rounded-lg px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
+          >
+            Exit without submitting
+          </Link>
         </div>
       </section>
     </PortalShell>

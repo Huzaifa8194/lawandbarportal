@@ -10,9 +10,29 @@ export default function MocksPage() {
 
   return (
     <PortalShell
-      title="Mock Exams"
-      subtitle="Practice with exam-style MCQs to test your knowledge."
+      title="Mock exams & MCQs"
+      subtitle="Law & Bar SQE Study Portal — timed exam practice and instant-feedback study mode"
     >
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Two ways to use each mock</h2>
+        <ul className="mt-3 list-inside list-disc space-y-2 text-slate-600">
+          <li>
+            <span className="font-medium text-slate-800">Practice mode</span> — one question at a time.
+            Depending on how the mock was built, you may see correct/incorrect feedback and the explanation
+            immediately, or only after you finish (see on-screen instructions when you start).
+          </li>
+          <li>
+            <span className="font-medium text-slate-800">Exam mode</span> — full mock with countdown timer.
+            You will not see correct answers until you submit (or time expires). Then you get your score and a
+            full review with explanations, in line with SQE-style delivery.
+          </li>
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">
+          Scores are saved to your progress so you can track improvement and retake mocks as often as you
+          need.
+        </p>
+      </section>
+
       <section className="grid gap-4 md:grid-cols-2">
         {mocks.map((mock) => {
           const qCount = normalizeMockQuestionIds(mock.questionIds).length;
@@ -49,16 +69,13 @@ export default function MocksPage() {
                     </svg>
                   </div>
 
-                  <div className="min-w-0">
-                    <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
-                      {mock.track}
-                    </span>
-                  </div>
+                  <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+                    {mock.track}
+                  </span>
                 </div>
               </div>
 
               <h3 className="mt-4 truncate text-xl font-semibold text-slate-900">{mock.title}</h3>
-              <p className="mt-1 truncate text-sm text-slate-600">{mock.id}</p>
 
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
                 <span className="inline-flex items-center gap-2">
@@ -78,7 +95,7 @@ export default function MocksPage() {
                       strokeLinejoin="round"
                     />
                   </svg>
-                  {qCount} questions
+                  {qCount} MCQ{qCount === 1 ? "" : "s"}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <svg className="size-4 text-slate-700" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -97,14 +114,14 @@ export default function MocksPage() {
                       strokeLinejoin="round"
                     />
                   </svg>
-                  {mock.durationMinutes} min
+                  {mock.durationMinutes} min (exam mode)
                 </span>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-5 grid grid-cols-2 gap-2">
                 <Link
-                  href={`/mocks/${mock.id}?mode=practice`}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  href={`/mocks/${encodeURIComponent(mock.id)}?mode=practice`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
                 >
                   <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path
@@ -118,8 +135,8 @@ export default function MocksPage() {
                   Practice
                 </Link>
                 <Link
-                  href={`/mocks/${mock.id}?mode=exam`}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  href={`/mocks/${encodeURIComponent(mock.id)}?mode=exam`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
                 >
                   <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path
@@ -137,7 +154,7 @@ export default function MocksPage() {
                       strokeLinejoin="round"
                     />
                   </svg>
-                  Exam Mode
+                  Exam mode
                 </Link>
               </div>
             </article>
@@ -146,13 +163,13 @@ export default function MocksPage() {
 
         {!loading && mocks.length === 0 ? (
           <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-            No mocks published yet. Ask your tutor to publish mocks in Admin.
+            No published mocks yet. Your programme team can add them from the admin panel.
           </div>
         ) : null}
 
         {loading ? (
           <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
-            Loading mocks…
+            Loading mock exams…
           </div>
         ) : null}
       </section>

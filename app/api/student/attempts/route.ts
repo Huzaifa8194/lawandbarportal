@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     const rows = snapshot.docs.map((item) => {
       const data = item.data();
       return {
-        id: item.id,
         ...data,
+        id: item.id,
         createdAt: normalizeDate(data.createdAt) ?? data.createdAt,
       };
     });
