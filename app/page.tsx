@@ -25,7 +25,7 @@ function formatActivityDate(iso?: string) {
 
 export default function Home() {
   const { user } = useAuth();
-  const { subjects, books, audios, attempts, mocks, loading } = usePortalLiveData();
+  const { subjects, books, audios, attempts, mocks, loading, attemptsLoading } = usePortalLiveData();
 
   const firstName = useMemo(() => {
     const dn = user?.displayName?.trim();
@@ -119,9 +119,9 @@ export default function Home() {
               </div>
             </div>
             <p className="mt-4 font-[family-name:var(--font-playfair)] text-2xl font-semibold tabular-nums text-[#121f1d] sm:text-3xl">
-              {loading ? "–" : attempts.length}
+              {loading || attemptsLoading ? "–" : attempts.length}
             </p>
-            <p className="mt-1 text-xs font-medium text-[#121f1d]/55 sm:text-sm">Mock Attempts</p>
+            <p className="mt-1 text-xs font-medium text-[#121f1d]/55 sm:text-sm">Mock attempts</p>
           </article>
 
           <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-4 shadow-sm sm:p-5">
@@ -233,35 +233,46 @@ export default function Home() {
             </Link>
           </div>
           <ul className="mt-4 space-y-3">
-            {recentAttempts.map((item) => {
-              const mockTitle = mocks.find((m) => m.id === item.mockId)?.title;
-              const label = mockTitle || `Mock ${item.mockId.slice(0, 8)}…`;
-              return (
-                <li
-                  key={item.id}
-                  className="flex flex-col gap-2 rounded-xl border border-[#121f1d]/8 bg-[#f8f9fa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[#121f1d]">{label}</p>
-                    <p className="text-xs text-[#121f1d]/50">{formatActivityDate(item.createdAt)}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="rounded-lg bg-white px-2.5 py-1 text-sm font-semibold tabular-nums text-[#0d4a42] ring-1 ring-[#121f1d]/10">
-                      {item.score}%
-                    </span>
-                    <Link
-                      href={`/mocks/${item.mockId}`}
-                      className="text-sm font-medium text-[#0d4a42] hover:text-[#26d9c0]"
-                    >
-                      View
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-            {!loading && recentAttempts.length === 0 ? (
+            {attemptsLoading ? (
+              <li className="rounded-xl border border-[#121f1d]/8 bg-[#f8f9fa] px-4 py-6 text-center text-sm text-[#121f1d]/55">
+                Loading mock scores…
+              </li>
+            ) : null}
+            {!attemptsLoading &&
+              recentAttempts.map((item) => {
+                const mockTitle = mocks.find((m) => m.id === item.mockId)?.title;
+                const label = mockTitle || `Mock ${(item.mockId ?? "").slice(0, 8) || "—"}…`;
+                const modeLabel = item.mode === "exam" ? "Exam" : "Practice";
+                return (
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-2 rounded-xl border border-[#121f1d]/8 bg-[#f8f9fa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[#121f1d]">{label}</p>
+                      <p className="text-xs text-[#121f1d]/50">
+                        {formatActivityDate(item.createdAt)}
+                        <span className="text-[#121f1d]/40"> · </span>
+                        <span className="font-medium text-[#121f1d]/60">{modeLabel}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="rounded-lg bg-white px-2.5 py-1 text-sm font-semibold tabular-nums text-[#0d4a42] ring-1 ring-[#121f1d]/10">
+                        {item.score}%
+                      </span>
+                      <Link
+                        href={`/mocks/${encodeURIComponent(item.mockId)}/result?attemptId=${encodeURIComponent(item.id)}`}
+                        className="text-sm font-medium text-[#0d4a42] hover:text-[#26d9c0]"
+                      >
+                        Review result
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
+            {!loading && !attemptsLoading && recentAttempts.length === 0 ? (
               <li className="rounded-xl border border-dashed border-[#121f1d]/20 bg-[#f8f9fa] px-4 py-8 text-center text-sm text-[#121f1d]/55">
-                No mock attempts yet. Start a mock exam to see your activity here.
+                No mock attempts yet. Start a mock under Mock exams to see scores here.
               </li>
             ) : null}
           </ul>

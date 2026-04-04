@@ -15,7 +15,7 @@ function formatDate(iso: string | undefined) {
 }
 
 export default function ProgressPage() {
-  const { subjects, attempts, mocks, books, audios, loading } = usePortalLiveData();
+  const { subjects, attempts, mocks, books, audios, loading, attemptsLoading } = usePortalLiveData();
   const [pdfStates, setPdfStates] = useState<Record<string, PdfStudyState | null>>({});
   const [audioStates, setAudioStates] = useState<Record<string, AudioStudyState | null>>({});
 
@@ -95,6 +95,21 @@ export default function ProgressPage() {
     ? Math.round(attempts.reduce((sum, item) => sum + item.score, 0) / attempts.length)
     : 0;
 
+  const recentMockAttempts = useMemo(() => {
+    return [...attempts]
+      .sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, 12);
+  }, [attempts]);
+
+  const examCount = useMemo(
+    () => attempts.filter((a) => (a.mode ?? "practice") === "exam").length,
+    [attempts],
+  );
+
   const recentSubjectViews = useMemo(() => {
     const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
     return books
@@ -114,11 +129,6 @@ export default function ProgressPage() {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 8);
   }, [books, pdfStates, subjects]);
-
-  const examAttempts = useMemo(
-    () => attempts.filter((attempt) => (attempt.mode ?? "practice") === "exam"),
-    [attempts],
-  );
 
   return (
     <PortalShell
@@ -152,8 +162,10 @@ export default function ProgressPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="mt-3 text-2xl font-semibold text-[#121f1d]">{loading ? "-" : `${bestScore}%`}</p>
-          <p className="text-sm text-[#121f1d]/55">Best Score</p>
+          <p className="mt-3 text-2xl font-semibold text-[#121f1d]">
+            {loading || attemptsLoading ? "-" : attempts.length ? `${bestScore}%` : "—"}
+          </p>
+          <p className="text-sm text-[#121f1d]/55">Best mock score</p>
         </article>
 
         <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-4 shadow-sm sm:p-5">
@@ -162,8 +174,10 @@ export default function ProgressPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </div>
-          <p className="mt-3 text-2xl font-semibold text-[#121f1d]">{loading ? "-" : `${averageScore}%`}</p>
-          <p className="text-sm text-[#121f1d]/55">Avg Score</p>
+          <p className="mt-3 text-2xl font-semibold text-[#121f1d]">
+            {loading || attemptsLoading ? "-" : attempts.length ? `${averageScore}%` : "—"}
+          </p>
+          <p className="text-sm text-[#121f1d]/55">Average mock score</p>
         </article>
       </section>
 
@@ -195,24 +209,56 @@ export default function ProgressPage() {
         </article>
 
         <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-5 shadow-sm sm:p-6">
-          <h3 className="text-xl font-semibold text-[#121f1d]">Exam Attempts</h3>
+          <div className="flex flex-col gap-1 border-b border-[#121f1d]/8 pb-3 sm:flex-row sm:items-end sm:justify-between">
+            <h3 className="text-xl font-semibold text-[#121f1d]">Recent mock scores</h3>
+            {!loading && !attemptsLoading && attempts.length > 0 ? (
+              <p className="text-xs text-[#121f1d]/50">
+                {examCount} exam · {attempts.length - examCount} practice
+              </p>
+            ) : null}
+          </div>
+          <p className="mt-2 text-sm text-[#121f1d]/55">
+            Every finished mock (practice or exam mode) is listed here and updates when you move between
+            pages.
+          </p>
           <div className="mt-4 space-y-3">
-            {examAttempts.slice(0, 8).map((score) => (
-              <div
-                key={score.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-[#121f1d]/10 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-[#121f1d]">
-                    {mockTitleById.get(score.mockId) ?? `Mock ${score.mockId}`}
-                  </p>
-                  <p className="text-xs text-[#121f1d]/55">{formatDate(score.createdAt)}</p>
-                </div>
-                <p className="shrink-0 text-sm font-semibold text-[#0d4a42]">{score.score}%</p>
-              </div>
-            ))}
-            {!loading && examAttempts.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[#121f1d]/55">No exam attempts yet.</p>
+            {attemptsLoading ? (
+              <p className="py-6 text-center text-sm text-[#121f1d]/55">Loading mock history…</p>
+            ) : null}
+            {!attemptsLoading &&
+              recentMockAttempts.map((row) => {
+                const title = mockTitleById.get(row.mockId) ?? `Mock ${row.mockId}`;
+                const modeLabel = row.mode === "exam" ? "Exam" : "Practice";
+                return (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#121f1d]/10 px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[#121f1d]">{title}</p>
+                      <p className="text-xs text-[#121f1d]/55">
+                        {formatDate(row.createdAt)}
+                        <span className="text-[#121f1d]/35"> · </span>
+                        <span className="font-medium text-[#121f1d]/60">{modeLabel}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-sm font-semibold tabular-nums text-[#0d4a42]">{row.score}%</span>
+                      <Link
+                        href={`/mocks/${encodeURIComponent(row.mockId)}/result?attemptId=${encodeURIComponent(row.id)}`}
+                        className="text-sm font-medium text-[#0d4a42] hover:text-[#26d9c0]"
+                      >
+                        Review
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            {!loading && !attemptsLoading && attempts.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[#121f1d]/55">
+                No mock attempts yet. Complete a mock under Mock exams — practice and exam runs both
+                appear here.
+              </p>
             ) : null}
           </div>
         </article>

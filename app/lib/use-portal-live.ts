@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   listAudios,
@@ -27,6 +28,7 @@ type PortalLiveOptions = {
 
 export function usePortalLiveData(options?: PortalLiveOptions) {
   const includeAttempts = options?.includeAttempts ?? true;
+  const pathname = usePathname();
   const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -36,6 +38,7 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
   const [videos, setVideos] = useState<VideoLesson[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -56,17 +59,6 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
         setMcqs(mcqsResp.filter((item) => item.published));
         setMocks(mocksResp.filter((item) => item.published));
         setVideos(videosResp.filter((item) => item.published));
-
-        if (user && includeAttempts) {
-          try {
-            const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
-            if (mounted) setAttempts(attemptsResp);
-          } catch {
-            if (mounted) setAttempts([]);
-          }
-        } else {
-          setAttempts([]);
-        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -75,7 +67,30 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
     return () => {
       mounted = false;
     };
-  }, [user, includeAttempts]);
+  }, [user]);
 
-  return { subjects, books, audios, videos, mcqs, mocks, attempts, loading };
+  useEffect(() => {
+    if (!includeAttempts || !user) {
+      setAttempts([]);
+      setAttemptsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAttemptsLoading(true);
+    (async () => {
+      try {
+        const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
+        if (!cancelled) setAttempts(attemptsResp);
+      } catch {
+        if (!cancelled) setAttempts([]);
+      } finally {
+        if (!cancelled) setAttemptsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, includeAttempts, pathname]);
+
+  return { subjects, books, audios, videos, mcqs, mocks, attempts, loading, attemptsLoading };
 }
