@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../../_lib/auth";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
+import { PORTAL_BOOKS_COLLECTION } from "@/lib/portal-collections";
 
 export async function DELETE(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function DELETE(
   try {
     await verifyAdminRequest(request);
     const { id } = await params;
-    const snap = await adminDb.collection("books").doc(id).get();
+    const snap = await adminDb.collection(PORTAL_BOOKS_COLLECTION).doc(id).get();
     const filePath = snap.data()?.filePath as string | undefined;
     if (filePath) {
       try {
@@ -18,7 +19,7 @@ export async function DELETE(
         // Missing file or permission — still remove Firestore doc
       }
     }
-    await adminDb.collection("books").doc(id).delete();
+    await adminDb.collection(PORTAL_BOOKS_COLLECTION).doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(

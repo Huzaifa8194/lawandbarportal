@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { PORTAL_BOOKS_COLLECTION } from "@/lib/portal-collections";
 
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
-    const snapshot = await adminDb.collection("books").orderBy("updatedAt", "desc").get();
+    const snapshot = await adminDb.collection(PORTAL_BOOKS_COLLECTION).orderBy("updatedAt", "desc").get();
     const rows = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }));
     return NextResponse.json(rows);
   } catch (error) {
@@ -31,8 +32,8 @@ export async function POST(request: NextRequest) {
       published: boolean;
     };
     const target = body.id
-      ? adminDb.collection("books").doc(body.id)
-      : adminDb.collection("books").doc();
+      ? adminDb.collection(PORTAL_BOOKS_COLLECTION).doc(body.id)
+      : adminDb.collection(PORTAL_BOOKS_COLLECTION).doc();
     await target.set(
       {
         ...body,

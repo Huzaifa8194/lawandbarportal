@@ -248,7 +248,7 @@ export default function ProgressPage() {
 
         <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 border-b border-[#121f1d]/8 pb-3 sm:flex-row sm:items-end sm:justify-between">
-            <h3 className="text-xl font-semibold text-[#121f1d]">Recent mock scores</h3>
+            <h3 className="text-xl font-semibold text-[#121f1d]">Mock scores</h3>
             {!loading && !attemptsLoading && attempts.length > 0 ? (
               <p className="text-xs text-[#121f1d]/50">
                 {examCount} exam · {attempts.length - examCount} practice

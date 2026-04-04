@@ -41,7 +41,31 @@ export default function SubjectWorkspacePage() {
   const { user } = useAuth();
   const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
-  const relatedBook = books.find((item) => item.subjectId === params.subjectId);
+
+  const booksForSubject = useMemo(() => {
+    return books
+      .filter((item) => item.subjectId === params.subjectId)
+      .sort((a, b) => {
+        const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return tb - ta;
+      });
+  }, [books, params.subjectId]);
+
+  const [selectedBookId, setSelectedBookId] = useState("");
+
+  useEffect(() => {
+    if (!booksForSubject.length) {
+      setSelectedBookId("");
+      return;
+    }
+    setSelectedBookId((prev) =>
+      prev && booksForSubject.some((b) => b.id === prev) ? prev : booksForSubject[0].id,
+    );
+  }, [params.subjectId, booksForSubject]);
+
+  const relatedBook =
+    booksForSubject.find((b) => b.id === selectedBookId) ?? booksForSubject[0];
   const relatedBookId = typeof relatedBook?.id === "string" ? relatedBook.id.trim() : "";
   const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
   const relatedVideos = videos.filter((item) => item.subjectId === params.subjectId);
@@ -528,8 +552,28 @@ export default function SubjectWorkspacePage() {
 
         {subject ? (
           <section className="mx-auto max-w-[1400px]">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
-              <p>{relatedBook?.title || "No PDF book is currently available for this subject."}</p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-xs text-white/60">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                <p className="min-w-0 truncate">
+                  {relatedBook?.title || "No PDF book is currently available for this subject."}
+                </p>
+                {booksForSubject.length > 1 ? (
+                  <label className="flex shrink-0 items-center gap-2 text-white/70">
+                    <span className="text-white/45">PDF</span>
+                    <select
+                      value={selectedBookId}
+                      onChange={(event) => setSelectedBookId(event.target.value)}
+                      className="max-w-[220px] truncate rounded-lg border border-white/20 bg-[#0d1514] px-2 py-1.5 text-xs text-white sm:max-w-xs"
+                    >
+                      {booksForSubject.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
               {relatedBook ? (
                 <div className="flex items-center gap-2">
                   <button

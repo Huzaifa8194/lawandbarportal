@@ -8,6 +8,7 @@ import {
   query,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { PORTAL_BOOKS_COLLECTION } from "@/lib/portal-collections";
 import type {
   AccessCode,
   Attempt,
@@ -56,7 +57,7 @@ export async function listSubjects(): Promise<Subject[]> {
 }
 
 export async function listBooks(): Promise<Book[]> {
-  const rows = await listCollection<Book>("books");
+  const rows = await listCollection<Book>(PORTAL_BOOKS_COLLECTION);
   return rows.map((row) => ({ ...row, updatedAt: normalizeDate(row.updatedAt) }));
 }
 

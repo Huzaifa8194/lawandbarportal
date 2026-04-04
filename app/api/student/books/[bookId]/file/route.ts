@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStudentRequest } from "../../../_lib/auth";
+import { PORTAL_BOOKS_COLLECTION } from "@/lib/portal-collections";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
 
 function isPdfBuffer(buffer: Buffer) {
@@ -22,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Missing book id" }, { status: 400 });
     }
 
-    const bookSnap = await adminDb.collection("books").doc(bookId).get();
+    const bookSnap = await adminDb.collection(PORTAL_BOOKS_COLLECTION).doc(bookId).get();
     if (!bookSnap.exists) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 });
     }
