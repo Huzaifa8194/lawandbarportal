@@ -40,10 +40,13 @@ export async function GET(request: NextRequest) {
       const sqeBundlePurchased = !!email && purchasedEmailSet.has(email);
       const portalAccessViaCode = user.portalAccessViaCode === true;
       const eligible = sqeBundlePurchased || portalAccessViaCode;
+      const raw = user.accessEnabled;
+      const accessEnabledRaw = raw === undefined ? null : raw === true;
       return {
         ...user,
         sqeBundlePurchased,
         portalAccessViaCode,
+        accessEnabledRaw,
         // Effective portal access: SQE bundle or redeemed admin code, and not explicitly disabled.
         accessEnabled: eligible && user.accessEnabled !== false,
       };

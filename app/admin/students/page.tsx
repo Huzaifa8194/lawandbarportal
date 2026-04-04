@@ -36,6 +36,49 @@ function JsonBlock({ title, value }: { title: string; value: unknown }) {
   );
 }
 
+function Spinner({ className }: { className?: string }) {
+  return (
+    <svg
+      className={`animate-spin ${className ?? ""}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+function StudentRowSkeleton() {
+  return (
+    <div className="rounded-xl border border-slate-200 p-4" aria-hidden>
+      <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+      <div className="mt-2 h-3 w-64 max-w-full animate-pulse rounded bg-slate-100" />
+      <div className="mt-2 h-3 w-48 animate-pulse rounded bg-slate-100" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <div className="h-6 w-28 animate-pulse rounded-md bg-slate-100" />
+        <div className="h-6 w-24 animate-pulse rounded-md bg-slate-100" />
+        <div className="h-8 w-28 animate-pulse rounded-lg bg-slate-200" />
+      </div>
+    </div>
+  );
+}
+
+function CodeRowSkeleton() {
+  return (
+    <div className="rounded-lg border border-slate-200 px-3 py-2" aria-hidden>
+      <div className="h-4 w-32 animate-pulse rounded bg-slate-200 font-mono" />
+      <div className="mt-2 h-3 w-full animate-pulse rounded bg-slate-100" />
+    </div>
+  );
+}
+
 type BundleFilter = "all" | "purchased" | "none";
 type AccessFilter = "all" | "on" | "off";
 type SortKey = "name_asc" | "name_desc" | "email_asc" | "email_desc" | "created_desc";
@@ -58,35 +101,50 @@ export default function AdminStudentsPage() {
   const [debugData, setDebugData] = useState<StudentAccessDebugResponse | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugError, setDebugError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [listRefreshing, setListRefreshing] = useState(false);
+  const [accessTogglingUid, setAccessTogglingUid] = useState<string | null>(null);
+  const [creatingCode, setCreatingCode] = useState(false);
+  const [codesLoadError, setCodesLoadError] = useState<string | null>(null);
 
-  const load = async () => {
-    setFeedback(null);
-    const [studentsResult, codesResult] = await Promise.allSettled([
-      adminApi.listStudents(),
-      adminApi.listAccessCodes(),
-    ]);
+  const load = async (opts?: { isInitial?: boolean }) => {
+    const isInitial = opts?.isInitial ?? false;
+    if (isInitial) setInitialLoading(true);
+    else setListRefreshing(true);
+    try {
+      const [studentsResult, codesResult] = await Promise.allSettled([
+        adminApi.listStudents(),
+        adminApi.listAccessCodes(),
+      ]);
 
-    if (studentsResult.status === "fulfilled") {
-      setStudents(studentsResult.value as UserProfile[]);
-    } else {
-      const msg =
-        studentsResult.reason instanceof Error
-          ? studentsResult.reason.message
-          : "Failed to load students.";
-      setFeedback({ type: "error", message: msg });
-    }
+      if (studentsResult.status === "fulfilled") {
+        setStudents(studentsResult.value as UserProfile[]);
+      } else {
+        const msg =
+          studentsResult.reason instanceof Error
+            ? studentsResult.reason.message
+            : "Failed to load students.";
+        setFeedback({ type: "error", message: msg });
+      }
 
-    if (codesResult.status === "fulfilled") {
-      setCodes(codesResult.value as AccessCode[]);
-    } else if (studentsResult.status === "fulfilled") {
-      const msg =
-        codesResult.reason instanceof Error ? codesResult.reason.message : "Failed to load access codes.";
-      setFeedback({ type: "error", message: `Students loaded; access codes failed: ${msg}` });
+      if (codesResult.status === "fulfilled") {
+        setCodes(codesResult.value as AccessCode[]);
+        setCodesLoadError(null);
+      } else {
+        const msg =
+          codesResult.reason instanceof Error ? codesResult.reason.message : "Failed to load access codes.";
+        setCodesLoadError(msg);
+      }
+    } catch {
+      setFeedback({ type: "error", message: "Failed to load admin data." });
+    } finally {
+      if (isInitial) setInitialLoading(false);
+      else setListRefreshing(false);
     }
   };
 
   useEffect(() => {
-    load().catch(() => setFeedback({ type: "error", message: "Failed to load admin data." }));
+    load({ isInitial: true }).catch(() => setFeedback({ type: "error", message: "Failed to load admin data." }));
   }, []);
 
   const filteredStudents = useMemo(() => {
@@ -205,46 +263,60 @@ export default function AdminStudentsPage() {
   }, [debugStudent, closeDebug]);
 
   const toggleAccess = async (student: UserProfile, nextEnabled: boolean) => {
-    try {
-      if (nextEnabled && student.sqeBundlePurchased !== true && student.portalAccessViaCode !== true) {
-        setFeedback({
-          type: "error",
-          message: "Enable access only for students with an SQE bundle purchase or a redeemed access code.",
-        });
-        return;
-      }
-      await adminApi.updateStudentAccess(student.uid, nextEnabled);
-      await adminApi.logAudit({
-        action: nextEnabled ? "enable_access" : "disable_access",
-        entity: "user",
-        entityId: student.uid,
-        details: student.email,
+    if (nextEnabled && student.sqeBundlePurchased !== true && student.portalAccessViaCode !== true) {
+      setFeedback({
+        type: "error",
+        message: "Enable access only for students with an SQE bundle purchase or a redeemed access code.",
       });
+      return;
+    }
+    setAccessTogglingUid(student.uid);
+    try {
+      await adminApi.updateStudentAccess(student.uid, nextEnabled);
       await load();
       setFeedback({ type: "success", message: "Student access updated." });
+      try {
+        await adminApi.logAudit({
+          action: nextEnabled ? "enable_access" : "disable_access",
+          entity: "user",
+          entityId: student.uid,
+          details: student.email,
+        });
+      } catch {
+        /* Audit is best-effort; Firestore access is already updated. */
+      }
     } catch (error) {
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "Update failed" });
+    } finally {
+      setAccessTogglingUid(null);
     }
   };
 
   const onCreateCode = async (event: React.FormEvent) => {
     event.preventDefault();
+    setCreatingCode(true);
     try {
       await adminApi.createAccessCode({
         email: email || undefined,
         expiresAt: expiresAt || undefined,
       });
-      await adminApi.logAudit({
-        action: "create_access_code",
-        entity: "access_code",
-        details: email || "No email binding",
-      });
       setEmail("");
       setExpiresAt("");
       await load();
       setFeedback({ type: "success", message: "Access code generated." });
+      try {
+        await adminApi.logAudit({
+          action: "create_access_code",
+          entity: "access_code",
+          details: email || "No email binding",
+        });
+      } catch {
+        /* best-effort */
+      }
     } catch (error) {
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "Creation failed" });
+    } finally {
+      setCreatingCode(false);
     }
   };
 
@@ -256,16 +328,39 @@ export default function AdminStudentsPage() {
       >
         {feedback ? <ToastInline type={feedback.type} message={feedback.message} /> : null}
 
-        <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+        <section className="relative grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+          {listRefreshing && !initialLoading ? (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center rounded-2xl bg-white/65 pt-28 backdrop-blur-[1px]"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-md">
+                <Spinner className="size-4 text-indigo-600" />
+                Updating…
+              </div>
+            </div>
+          ) : null}
+
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold">Student Accounts</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Showing {filteredStudents.length} of {students.length} · click a name for access / bundle debug
+                  {initialLoading ? (
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                      <Spinner className="size-3.5 text-slate-500" />
+                      Loading students…
+                    </span>
+                  ) : (
+                    <>
+                      Showing {filteredStudents.length} of {students.length} · click a name for access / bundle
+                      debug
+                    </>
+                  )}
                 </p>
               </div>
-              {filtersActive ? (
+              {filtersActive && !initialLoading ? (
                 <button
                   type="button"
                   onClick={clearFilters}
@@ -281,7 +376,8 @@ export default function AdminStudentsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search email, name, or UID"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                disabled={initialLoading}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70"
               />
               <div className="flex flex-wrap gap-2">
                 <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs font-medium text-slate-600">
@@ -289,7 +385,8 @@ export default function AdminStudentsPage() {
                   <select
                     value={bundleFilter}
                     onChange={(e) => setBundleFilter(e.target.value as BundleFilter)}
-                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900"
+                    disabled={initialLoading}
+                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50"
                   >
                     <option value="all">All</option>
                     <option value="purchased">Purchased</option>
@@ -301,7 +398,8 @@ export default function AdminStudentsPage() {
                   <select
                     value={accessFilter}
                     onChange={(e) => setAccessFilter(e.target.value as AccessFilter)}
-                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900"
+                    disabled={initialLoading}
+                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50"
                   >
                     <option value="all">All</option>
                     <option value="on">Enabled</option>
@@ -313,7 +411,8 @@ export default function AdminStudentsPage() {
                   <select
                     value={sortKey}
                     onChange={(e) => setSortKey(e.target.value as SortKey)}
-                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900"
+                    disabled={initialLoading}
+                    className="rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50"
                   >
                     <option value="name_asc">Name A–Z</option>
                     <option value="name_desc">Name Z–A</option>
@@ -326,61 +425,76 @@ export default function AdminStudentsPage() {
             </div>
 
             <div className="mt-4 space-y-3">
-              {filteredStudents.map((student) => {
-                const sqeEligible = student.sqeBundlePurchased === true;
-                const codeEligible = student.portalAccessViaCode === true;
-                const eligible = sqeEligible || codeEligible;
-                const enabled = eligible && student.accessEnabled !== false;
-                return (
-                  <div
-                    key={student.uid}
-                    className="rounded-xl border border-slate-200 p-4"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => openDebug(student)}
-                      className="text-left font-medium text-slate-900 underline decoration-dotted decoration-slate-400 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400"
-                    >
-                      {student.fullName || "Unnamed Student"}
-                    </button>
-                    <p className="text-sm text-slate-600">{student.email}</p>
-                    <p className="mt-1 text-xs text-slate-500">UID: {student.uid}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-md px-2 py-1 text-xs font-medium ${
-                          sqeEligible ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {sqeEligible ? "SQE bundle purchased" : "No SQE bundle"}
-                      </span>
-                      {codeEligible ? (
-                        <span className="rounded-md bg-teal-100 px-2 py-1 text-xs font-medium text-teal-900">
-                          Access code redeemed
-                        </span>
-                      ) : null}
-                      <span
-                        className={`rounded-md px-2 py-1 text-xs font-medium ${
-                          enabled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {enabled ? "Access enabled" : "Access disabled"}
-                      </span>
-                      <button
-                        onClick={() => toggleAccess(student, !enabled)}
-                        disabled={!eligible && enabled === false}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                      >
-                        {enabled ? "Disable access" : "Enable access"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {!filteredStudents.length ? (
-                <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                  No students matched these filters.
-                </p>
-              ) : null}
+              {initialLoading ? (
+                <>
+                  <StudentRowSkeleton />
+                  <StudentRowSkeleton />
+                  <StudentRowSkeleton />
+                  <StudentRowSkeleton />
+                </>
+              ) : (
+                <>
+                  {filteredStudents.map((student) => {
+                    const sqeEligible = student.sqeBundlePurchased === true;
+                    const codeEligible = student.portalAccessViaCode === true;
+                    const eligible = sqeEligible || codeEligible;
+                    const rawOpen = student.accessEnabledRaw !== false;
+                    const enabled = eligible && rawOpen;
+                    const toggling = accessTogglingUid === student.uid;
+                    const disableToggle =
+                      toggling || (!eligible && !enabled);
+                    return (
+                      <div key={student.uid} className="rounded-xl border border-slate-200 p-4">
+                        <button
+                          type="button"
+                          onClick={() => openDebug(student)}
+                          disabled={toggling}
+                          className="text-left font-medium text-slate-900 underline decoration-dotted decoration-slate-400 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400 disabled:opacity-50"
+                        >
+                          {student.fullName || "Unnamed Student"}
+                        </button>
+                        <p className="text-sm text-slate-600">{student.email}</p>
+                        <p className="mt-1 text-xs text-slate-500">UID: {student.uid}</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-md px-2 py-1 text-xs font-medium ${
+                              sqeEligible ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {sqeEligible ? "SQE bundle purchased" : "No SQE bundle"}
+                          </span>
+                          {codeEligible ? (
+                            <span className="rounded-md bg-teal-100 px-2 py-1 text-xs font-medium text-teal-900">
+                              Access code redeemed
+                            </span>
+                          ) : null}
+                          <span
+                            className={`rounded-md px-2 py-1 text-xs font-medium ${
+                              enabled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {enabled ? "Access enabled" : "Access disabled"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleAccess(student, !enabled)}
+                            disabled={disableToggle}
+                            className="inline-flex min-h-[2.25rem] min-w-[7.5rem] items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {toggling ? <Spinner className="size-4 text-slate-600" /> : null}
+                            {toggling ? "Saving…" : enabled ? "Disable access" : "Enable access"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!filteredStudents.length ? (
+                    <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                      No students matched these filters.
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
           </article>
 
@@ -389,22 +503,38 @@ export default function AdminStudentsPage() {
               <div>
                 <h3 className="text-lg font-semibold">Access Codes</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Showing {filteredCodes.length} of {codes.length}
+                  {initialLoading ? (
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                      <Spinner className="size-3.5 text-slate-500" />
+                      Loading codes…
+                    </span>
+                  ) : (
+                    <>Showing {filteredCodes.length} of {codes.length}</>
+                  )}
                 </p>
               </div>
             </div>
+
+            {codesLoadError ? (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+                Access codes could not be refreshed: {codesLoadError}. Student list and access toggles still
+                use the latest data.
+              </p>
+            ) : null}
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <input
                 value={codeQuery}
                 onChange={(e) => setCodeQuery(e.target.value)}
                 placeholder="Search code, email, or UID"
-                className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                disabled={initialLoading}
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-50"
               />
               <select
                 value={codeStatus}
                 onChange={(e) => setCodeStatus(e.target.value as "all" | "active" | "inactive")}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40"
+                disabled={initialLoading}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40 disabled:cursor-not-allowed disabled:bg-slate-50"
               >
                 <option value="all">All statuses</option>
                 <option value="active">Active only</option>
@@ -421,40 +551,54 @@ export default function AdminStudentsPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="Optional: student@email.com"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  disabled={creatingCode || initialLoading}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
                 />
                 <input
                   type="datetime-local"
                   value={expiresAt}
                   onChange={(event) => setExpiresAt(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  disabled={creatingCode || initialLoading}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+                  disabled={creatingCode || initialLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Generate code
+                  {creatingCode ? <Spinner className="size-4 text-white" /> : null}
+                  {creatingCode ? "Generating…" : "Generate code"}
                 </button>
               </FormSection>
             </form>
             <div className="mt-4 max-h-[min(420px,50vh)] space-y-2 overflow-y-auto pr-1">
-              {filteredCodes.map((code) => (
-                <div key={code.id} className="rounded-lg border border-slate-200 px-3 py-2">
-                  <p className="font-mono text-sm">{code.code}</p>
-                  <p className="text-xs text-slate-500">
-                    {code.active ? "Active" : "Inactive"}
-                    {code.email ? ` • locked to ${code.email}` : " • any email (after sign-in)"}
-                    {code.expiresAt ? ` • expires ${code.expiresAt}` : ""}
-                    {code.usedAt ? ` • used ${code.usedAt}` : ""}
-                    {code.uid ? ` • uid ${code.uid.slice(0, 8)}…` : ""}
-                  </p>
-                </div>
-              ))}
-              {!filteredCodes.length ? (
-                <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
-                  No codes match these filters.
-                </p>
-              ) : null}
+              {initialLoading ? (
+                <>
+                  <CodeRowSkeleton />
+                  <CodeRowSkeleton />
+                  <CodeRowSkeleton />
+                </>
+              ) : (
+                <>
+                  {filteredCodes.map((code) => (
+                    <div key={code.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                      <p className="font-mono text-sm">{code.code}</p>
+                      <p className="text-xs text-slate-500">
+                        {code.active ? "Active" : "Inactive"}
+                        {code.email ? ` • locked to ${code.email}` : " • any email (after sign-in)"}
+                        {code.expiresAt ? ` • expires ${code.expiresAt}` : ""}
+                        {code.usedAt ? ` • used ${code.usedAt}` : ""}
+                        {code.uid ? ` • uid ${code.uid.slice(0, 8)}…` : ""}
+                      </p>
+                    </div>
+                  ))}
+                  {!filteredCodes.length ? (
+                    <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
+                      No codes match these filters.
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
           </article>
         </section>

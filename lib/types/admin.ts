@@ -6,6 +6,8 @@ export type UserProfile = {
   fullName?: string;
   isAdmin?: boolean;
   accessEnabled?: boolean;
+  /** Firestore `accessEnabled` before effective calculation (`null` = field absent). */
+  accessEnabledRaw?: boolean | null;
   /** Granted by redeeming an admin-generated access code (persists on user doc). */
   portalAccessViaCode?: boolean;
   sqeBundlePurchased?: boolean;
