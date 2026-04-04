@@ -112,6 +112,16 @@ export type Mcq = {
   updatedAt?: string;
 };
 
+/** `GET /api/admin/mcqs` — paginated browse or search (substring). */
+export type AdminMcqListResponse = {
+  items: Mcq[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  mode: "page" | "search";
+  /** Set when `mode === "search"`: total rows matching query before `limit` slice. */
+  totalMatched?: number;
+};
+
 export type MockExam = {
   id: string;
   title: string;

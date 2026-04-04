@@ -2,7 +2,7 @@
 
 import { onAuthStateChanged } from "firebase/auth";
 import type { User } from "firebase/auth";
-import type { StudentAccessDebugResponse } from "@/lib/types/admin";
+import type { AdminMcqListResponse, Mcq, StudentAccessDebugResponse } from "@/lib/types/admin";
 import { auth } from "@/lib/firebase";
 
 /**
@@ -78,7 +78,26 @@ export const adminApi = {
   listVideos: () => request("/api/admin/videos"),
   upsertVideo: (payload: unknown) => request("/api/admin/videos", "POST", payload),
   deleteVideo: (id: string) => request(`/api/admin/videos/${id}`, "DELETE"),
-  listMcqs: () => request("/api/admin/mcqs"),
+  listMcqs: (query?: {
+    limit?: number;
+    cursor?: string;
+    q?: string;
+    track?: string;
+    subjectId?: string;
+    published?: "true" | "false";
+  }) => {
+    const sp = new URLSearchParams();
+    if (query?.limit != null) sp.set("limit", String(query.limit));
+    if (query?.cursor) sp.set("cursor", query.cursor);
+    if (query?.q) sp.set("q", query.q);
+    if (query?.track) sp.set("track", query.track);
+    if (query?.subjectId) sp.set("subjectId", query.subjectId);
+    if (query?.published) sp.set("published", query.published);
+    const qs = sp.toString();
+    return request<AdminMcqListResponse>(qs ? `/api/admin/mcqs?${qs}` : "/api/admin/mcqs");
+  },
+  lookupMcqsByIds: (ids: string[]) =>
+    request<{ items: Mcq[] }>("/api/admin/mcqs/lookup", "POST", { ids }),
   upsertMcq: (payload: unknown) => request("/api/admin/mcqs", "POST", payload),
   deleteMcq: (id: string) => request(`/api/admin/mcqs/${id}`, "DELETE"),
   listMocks: () => request("/api/admin/mocks"),
