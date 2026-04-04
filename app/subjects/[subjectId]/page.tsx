@@ -311,11 +311,13 @@ export default function SubjectWorkspacePage() {
                   <span aria-hidden>←</span>
                   <span>Back</span>
                 </Link>
-                <Link href={backTrackHref} className="hover:text-[#26d9c0]">
-                  {subject?.track || "FLK"}
-                </Link>
-                <span>/</span>
-                <span>Study</span>
+                <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                  <Link href={backTrackHref} className="hover:text-[#26d9c0]">
+                    {subject?.track || "FLK"}
+                  </Link>
+                  <span>/</span>
+                  <span>Study</span>
+                </div>
               </div>
               <h1 className="truncate font-[family-name:var(--font-playfair)] text-xl font-semibold sm:text-2xl">
                 {subject?.name || "Subject Study Workspace"}
