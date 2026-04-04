@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { FlkTrack } from "@/lib/types/admin";
 import { usePortalLiveData } from "../lib/use-portal-live";
+import SubjectsGridSkeleton from "./subjects-grid-skeleton";
 
 type SubjectsListProps = {
   track?: FlkTrack;
@@ -24,6 +25,10 @@ export default function SubjectsList({ track }: SubjectsListProps) {
     const list = track ? subjects.filter((s) => s.track === track) : [...subjects];
     return list.sort((a, b) => a.order - b.order);
   }, [subjects, track]);
+
+  if (loading) {
+    return <SubjectsGridSkeleton />;
+  }
 
   return (
     <section className="grid gap-4 sm:gap-5 md:grid-cols-2">
@@ -95,7 +100,7 @@ export default function SubjectsList({ track }: SubjectsListProps) {
           </Link>
         );
       })}
-      {!loading && filteredSubjects.length === 0 ? (
+      {filteredSubjects.length === 0 ? (
         <p className="col-span-full rounded-xl border border-dashed border-[#121f1d]/20 bg-white p-8 text-center text-sm text-[#121f1d]/55">
           No published subjects available yet.
         </p>

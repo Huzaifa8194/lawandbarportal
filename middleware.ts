@@ -11,6 +11,13 @@ function isProtectedPath(pathname: string) {
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  if (pathname === "/login") {
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(loginUrl);
+  }
+
   const sessionCookie = request.cookies.get("lb_session")?.value;
   const adminCookie = request.cookies.get("lb_admin")?.value;
   const accessCookie = request.cookies.get("lb_access")?.value;
