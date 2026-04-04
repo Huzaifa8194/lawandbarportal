@@ -76,7 +76,7 @@ export default function StudyPdfPane({
       <div className="flex h-full min-h-0 w-full flex-col">
         <div
           ref={containerRef}
-          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-[#e8e6e1]"
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg bg-[#e8e6e1]"
         >
           <Document
             key={bookId}
@@ -100,7 +100,6 @@ export default function StudyPdfPane({
               width={Math.min(pageWidth, 900)}
               renderTextLayer
               renderAnnotationLayer
-              className="shadow-lg ring-1 ring-black/10"
             />
           </Document>
         </div>
@@ -110,7 +109,7 @@ export default function StudyPdfPane({
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg">
       <iframe
         key={bookId}
         src={iframePdfUrl}

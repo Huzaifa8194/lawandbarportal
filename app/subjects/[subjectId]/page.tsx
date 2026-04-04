@@ -558,9 +558,9 @@ export default function SubjectWorkspacePage() {
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111a19] to-[#0b1110] p-3 sm:p-8">
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
-                  <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
+                  <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
                     <div className="flex h-[72vh] min-h-[360px] w-full items-start justify-center overflow-hidden rounded-[12px] bg-white p-2 text-slate-900 sm:h-[82vh] sm:min-h-[680px] sm:p-4">
-                      <div className="flex h-full min-h-0 w-full flex-col rounded-lg border border-slate-200">
+                      <div className="flex h-full min-h-0 w-full flex-col rounded-lg">
                         {iframePdfUrl ? (
                           <StudyPdfPane
                             bookId={relatedBookId}
