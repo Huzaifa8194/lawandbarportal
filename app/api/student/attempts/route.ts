@@ -32,6 +32,32 @@ function createdAtSortKey(value: unknown): number {
   return 0;
 }
 
+const MAX_PAGE_SIZE = 100;
+
+function paginationMeta(
+  page: number,
+  pageSize: number,
+  total: number,
+): {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+} {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  return {
+    page: safePage,
+    pageSize,
+    total,
+    totalPages,
+    hasNextPage: safePage < totalPages,
+    hasPreviousPage: safePage > 1,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { uid } = await verifyStudentRequest(request);
@@ -51,9 +77,39 @@ export async function GET(request: NextRequest) {
           createdAt: normalizeDate(data.createdAt) ?? data.createdAt,
         };
       })
-      .sort((a, b) => createdAtSortKey(b.createdAt) - createdAtSortKey(a.createdAt))
-      .slice(0, 50);
-    return NextResponse.json(rows);
+      .sort((a, b) => createdAtSortKey(b.createdAt) - createdAtSortKey(a.createdAt));
+
+    const total = rows.length;
+    const pageSizeRaw = request.nextUrl.searchParams.get("pageSize");
+    const pageRaw = request.nextUrl.searchParams.get("page");
+
+    if (pageSizeRaw != null && pageSizeRaw !== "") {
+      let pageSize = Number.parseInt(pageSizeRaw, 10);
+      if (!Number.isFinite(pageSize) || pageSize < 1) pageSize = 10;
+      pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+      let page = Number.parseInt(pageRaw ?? "1", 10);
+      if (!Number.isFinite(page) || page < 1) page = 1;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+      page = Math.min(page, totalPages);
+      const start = (page - 1) * pageSize;
+      const data = rows.slice(start, start + pageSize);
+      return NextResponse.json({
+        data,
+        pagination: paginationMeta(page, pageSize, total),
+      });
+    }
+
+    return NextResponse.json({
+      data: rows,
+      pagination: {
+        page: 1,
+        pageSize: total,
+        total,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
   } catch (error) {
     return studentRouteErrorResponse(error);
   }

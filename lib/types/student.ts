@@ -53,3 +53,17 @@ export type StudentAttempt = {
   answers: AttemptAnswer[];
   createdAt: string;
 };
+
+export type AttemptsPaginationMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedAttemptsResponse = {
+  data: StudentAttempt[];
+  pagination: AttemptsPaginationMeta;
+};

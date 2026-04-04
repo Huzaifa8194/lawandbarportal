@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import DataPagination from "../components/data-pagination";
 import PortalShell from "../components/portal-shell";
 import { usePortalLiveData } from "../lib/use-portal-live";
 import { studentApi } from "@/lib/services/student-api";
@@ -18,6 +19,10 @@ export default function ProgressPage() {
   const { subjects, attempts, mocks, books, audios, loading, attemptsLoading } = usePortalLiveData();
   const [pdfStates, setPdfStates] = useState<Record<string, PdfStudyState | null>>({});
   const [audioStates, setAudioStates] = useState<Record<string, AudioStudyState | null>>({});
+  const [subjectPage, setSubjectPage] = useState(1);
+  const [subjectPageSize, setSubjectPageSize] = useState(10);
+  const [mockPage, setMockPage] = useState(1);
+  const [mockPageSize, setMockPageSize] = useState(10);
 
   const mockTitleById = useMemo(() => new Map(mocks.map((m) => [m.id, m.title])), [mocks]);
 
@@ -95,14 +100,12 @@ export default function ProgressPage() {
     ? Math.round(attempts.reduce((sum, item) => sum + item.score, 0) / attempts.length)
     : 0;
 
-  const recentMockAttempts = useMemo(() => {
-    return [...attempts]
-      .sort((a, b) => {
-        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return tb - ta;
-      })
-      .slice(0, 12);
+  const sortedMockAttempts = useMemo(() => {
+    return [...attempts].sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
   }, [attempts]);
 
   const examCount = useMemo(
@@ -110,7 +113,7 @@ export default function ProgressPage() {
     [attempts],
   );
 
-  const recentSubjectViews = useMemo(() => {
+  const sortedSubjectViews = useMemo(() => {
     const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
     return books
       .map((book) => {
@@ -126,9 +129,29 @@ export default function ProgressPage() {
         };
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 8);
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [books, pdfStates, subjects]);
+
+  const subjectTotalPages = Math.max(1, Math.ceil(sortedSubjectViews.length / subjectPageSize) || 1);
+  const mockTotalPages = Math.max(1, Math.ceil(sortedMockAttempts.length / mockPageSize) || 1);
+
+  useEffect(() => {
+    if (subjectPage > subjectTotalPages) setSubjectPage(subjectTotalPages);
+  }, [subjectPage, subjectTotalPages]);
+
+  useEffect(() => {
+    if (mockPage > mockTotalPages) setMockPage(mockTotalPages);
+  }, [mockPage, mockTotalPages]);
+
+  const pagedSubjectViews = useMemo(() => {
+    const start = (subjectPage - 1) * subjectPageSize;
+    return sortedSubjectViews.slice(start, start + subjectPageSize);
+  }, [sortedSubjectViews, subjectPage, subjectPageSize]);
+
+  const pagedMockAttempts = useMemo(() => {
+    const start = (mockPage - 1) * mockPageSize;
+    return sortedMockAttempts.slice(start, start + mockPageSize);
+  }, [sortedMockAttempts, mockPage, mockPageSize]);
 
   return (
     <PortalShell
@@ -183,9 +206,24 @@ export default function ProgressPage() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-5 shadow-sm sm:p-6">
-          <h3 className="text-xl font-semibold text-[#121f1d]">Recent Subject Views</h3>
+          <h3 className="text-xl font-semibold text-[#121f1d]">Subject views</h3>
+          <p className="mt-1 text-sm text-[#121f1d]/55">
+            PDF activity by subject, newest first. Use pagination to browse the full history.
+          </p>
+          <DataPagination
+            className="mt-4 border-b border-[#121f1d]/8 pb-4"
+            label="Subject views pagination"
+            total={sortedSubjectViews.length}
+            page={subjectPage}
+            pageSize={subjectPageSize}
+            onPageChange={setSubjectPage}
+            onPageSizeChange={(n) => {
+              setSubjectPageSize(n);
+              setSubjectPage(1);
+            }}
+          />
           <div className="mt-4 space-y-2">
-            {recentSubjectViews.map((item) => (
+            {pagedSubjectViews.map((item) => (
               <Link
                 key={`${item.subjectId}-${item.updatedAt}`}
                 href={`/subjects/${item.subjectId}`}
@@ -202,7 +240,7 @@ export default function ProgressPage() {
                 </span>
               </Link>
             ))}
-            {!loading && recentSubjectViews.length === 0 ? (
+            {!loading && sortedSubjectViews.length === 0 ? (
               <p className="py-6 text-center text-sm text-[#121f1d]/55">No subject views yet.</p>
             ) : null}
           </div>
@@ -221,12 +259,26 @@ export default function ProgressPage() {
             Every finished mock (practice or exam mode) is listed here and updates when you move between
             pages.
           </p>
+          {!attemptsLoading && attempts.length > 0 ? (
+            <DataPagination
+              className="mt-4 border-b border-[#121f1d]/8 pb-4"
+              label="Mock attempts pagination"
+              total={sortedMockAttempts.length}
+              page={mockPage}
+              pageSize={mockPageSize}
+              onPageChange={setMockPage}
+              onPageSizeChange={(n) => {
+                setMockPageSize(n);
+                setMockPage(1);
+              }}
+            />
+          ) : null}
           <div className="mt-4 space-y-3">
             {attemptsLoading ? (
               <p className="py-6 text-center text-sm text-[#121f1d]/55">Loading mock history…</p>
             ) : null}
             {!attemptsLoading &&
-              recentMockAttempts.map((row) => {
+              pagedMockAttempts.map((row) => {
                 const title = mockTitleById.get(row.mockId) ?? `Mock ${row.mockId}`;
                 const modeLabel = row.mode === "exam" ? "Exam" : "Practice";
                 return (

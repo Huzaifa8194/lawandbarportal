@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/firebase";
 import type { Mcq, MockExam } from "@/lib/types/admin";
-import type { StudentAttempt } from "@/lib/types/student";
+import type { PaginatedAttemptsResponse, StudentAttempt } from "@/lib/types/student";
 
 async function headers() {
   const user = auth.currentUser;
@@ -26,7 +26,13 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
 }
 
 export const studentApi = {
-  listAttempts: () => request("/api/student/attempts"),
+  listAttempts: (params?: { page?: number; pageSize?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.page != null) sp.set("page", String(params.page));
+    if (params?.pageSize != null) sp.set("pageSize", String(params.pageSize));
+    const qs = sp.toString();
+    return request<PaginatedAttemptsResponse>(`/api/student/attempts${qs ? `?${qs}` : ""}`);
+  },
   getAttempt: (attemptId: string) =>
     request<StudentAttempt>(`/api/student/attempts/${encodeURIComponent(attemptId)}`),
   createAttempt: (payload: unknown) => request("/api/student/attempts", "POST", payload),

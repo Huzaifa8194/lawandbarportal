@@ -79,8 +79,8 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
     setAttemptsLoading(true);
     (async () => {
       try {
-        const attemptsResp = (await studentApi.listAttempts()) as Attempt[];
-        if (!cancelled) setAttempts(attemptsResp);
+        const attemptsResp = await studentApi.listAttempts();
+        if (!cancelled) setAttempts(attemptsResp.data as Attempt[]);
       } catch {
         if (!cancelled) setAttempts([]);
       } finally {
