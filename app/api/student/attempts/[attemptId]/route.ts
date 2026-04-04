@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStudentRequest } from "../../_lib/auth";
+import { studentRouteErrorResponse } from "../../_lib/http-error";
 import { adminDb } from "@/lib/firebase-admin";
 
 function normalizeDate(value: unknown): string | undefined {
@@ -43,9 +44,6 @@ export async function GET(
       createdAt: normalizeDate(data.createdAt) ?? data.createdAt,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Request failed" },
-      { status: 403 },
-    );
+    return studentRouteErrorResponse(error);
   }
 }
