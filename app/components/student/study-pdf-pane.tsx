@@ -53,10 +53,10 @@ export default function StudyPdfPane({
     const el = containerRef.current;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w) setPageWidth(Math.max(240, Math.floor(w - 16)));
+      if (w) setPageWidth(Math.max(240, Math.floor(w)));
     });
     ro.observe(el);
-    setPageWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width - 16)));
+    setPageWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width)));
     return () => ro.disconnect();
   }, [preferPdfJs]);
 
@@ -76,18 +76,18 @@ export default function StudyPdfPane({
       <div className="flex h-full min-h-0 w-full flex-col">
         <div
           ref={containerRef}
-          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg bg-[#e8e6e1]"
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#0b1110]"
         >
           <Document
             key={bookId}
             file={pdfBlobUrl}
             loading={
-              <div className="flex min-h-[200px] items-center justify-center p-6 text-sm text-slate-600">
+              <div className="flex min-h-[200px] items-center justify-center p-6 text-sm text-white/60">
                 Rendering PDF…
               </div>
             }
             error={
-              <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-red-700">
+              <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-red-300">
                 <p>Could not display the PDF in the app viewer.</p>
                 {openExternal}
               </div>
@@ -109,12 +109,12 @@ export default function StudyPdfPane({
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg">
+    <div className="h-full w-full min-h-0 overflow-hidden">
       <iframe
         key={bookId}
         src={iframePdfUrl}
         title={title}
-        className="h-full min-h-[480px] w-full bg-white"
+        className="block h-full min-h-[480px] w-full border-0 bg-[#0b1110]"
       />
     </div>
   );
