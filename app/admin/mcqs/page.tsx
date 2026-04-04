@@ -272,8 +272,8 @@ export default function AdminMcqsPage() {
           </div>
         ) : null}
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,440px)_1fr]">
-          <article className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6">
+        <section className="flex min-w-0 flex-col gap-8">
+          <article className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-lg font-semibold text-slate-900">{form.id ? "Edit MCQ" : "Add MCQ"}</h3>
               {form.id ? (
@@ -286,84 +286,88 @@ export default function AdminMcqsPage() {
                 </button>
               ) : null}
             </div>
-            <form className="mt-4 space-y-4" onSubmit={onSave}>
+            <form className="mt-4 space-y-5" onSubmit={onSave}>
               <FormSection title="Question setup">
                 <textarea
                   value={form.question}
                   onChange={(event) => setForm((prev) => ({ ...prev, question: event.target.value }))}
                   placeholder="Scenario / question"
                   disabled={saving}
-                  rows={5}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
+                  rows={8}
+                  className="min-h-[11rem] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm leading-relaxed disabled:opacity-60"
                 />
                 <textarea
                   value={form.explanation}
                   onChange={(event) => setForm((prev) => ({ ...prev, explanation: event.target.value }))}
                   placeholder="Explanation"
                   disabled={saving}
-                  rows={4}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
+                  rows={6}
+                  className="min-h-[8rem] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm leading-relaxed disabled:opacity-60"
                 />
               </FormSection>
 
               <FormSection title="Classification">
-                <select
-                  value={form.track}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, track: event.target.value as FlkTrack }))
-                  }
-                  disabled={saving}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
-                >
-                  <option>FLK 1</option>
-                  <option>FLK 2</option>
-                </select>
-                <select
-                  value={form.subjectId}
-                  onChange={(event) => {
-                    const selected = subjects.find((item) => item.id === event.target.value);
-                    setForm((prev) => ({
-                      ...prev,
-                      subjectId: event.target.value,
-                      subjectName: selected?.name || "",
-                    }));
-                  }}
-                  disabled={saving}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
-                >
-                  <option value="">{subjects.length ? "Select subject" : "Loading subjects…"}</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+                  <select
+                    value={form.track}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, track: event.target.value as FlkTrack }))
+                    }
+                    disabled={saving}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:opacity-60"
+                  >
+                    <option>FLK 1</option>
+                    <option>FLK 2</option>
+                  </select>
+                  <select
+                    value={form.subjectId}
+                    onChange={(event) => {
+                      const selected = subjects.find((item) => item.id === event.target.value);
+                      setForm((prev) => ({
+                        ...prev,
+                        subjectId: event.target.value,
+                        subjectName: selected?.name || "",
+                      }));
+                    }}
+                    disabled={saving}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:opacity-60"
+                  >
+                    <option value="">{subjects.length ? "Select subject" : "Loading subjects…"}</option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </FormSection>
 
               <FormSection title="Options (exactly five)">
-                {form.options.map((value, index) => (
-                  <input
-                    key={index}
-                    value={value}
-                    onChange={(event) =>
-                      setForm((prev) => {
-                        const next = [...prev.options];
-                        next[index] = event.target.value;
-                        return { ...prev, options: next };
-                      })
-                    }
-                    placeholder={`Option ${index + 1}`}
-                    disabled={saving}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
-                  />
-                ))}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {form.options.map((value, index) => (
+                    <input
+                      key={index}
+                      value={value}
+                      onChange={(event) =>
+                        setForm((prev) => {
+                          const next = [...prev.options];
+                          next[index] = event.target.value;
+                          return { ...prev, options: next };
+                        })
+                      }
+                      placeholder={`Option ${index + 1}`}
+                      disabled={saving}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:opacity-60"
+                    />
+                  ))}
+                </div>
                 <select
                   value={form.correctOption}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, correctOption: Number(event.target.value) }))
                   }
                   disabled={saving}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-60"
+                  className="mt-3 w-full max-w-md rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:opacity-60"
                 >
                   {form.options.map((_, index) => (
                     <option key={index} value={index}>
@@ -393,7 +397,7 @@ export default function AdminMcqsPage() {
             </form>
           </article>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Question bank</h3>
