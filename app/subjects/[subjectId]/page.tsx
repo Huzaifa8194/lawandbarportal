@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
+import StudyPdfPane, { usePreferPdfJsViewer } from "@/app/components/student/study-pdf-pane";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 import { useAuth } from "../../context/auth-context";
 
@@ -60,6 +61,8 @@ export default function SubjectWorkspacePage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
+  const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
+  const preferPdfJsViewer = usePreferPdfJsViewer();
   const pdfBlobRef = useRef<string | null>(null);
   const lastLoadedBookRef = useRef<string | null>(null);
 
@@ -150,6 +153,20 @@ export default function SubjectWorkspacePage() {
       controller.abort();
     };
   }, [relatedBookId, user, pdfReloadKey]);
+
+  useEffect(() => {
+    setPdfNumPages(null);
+  }, [relatedBookId]);
+
+  useEffect(() => {
+    if (!preferPdfJsViewer) setPdfNumPages(null);
+  }, [preferPdfJsViewer]);
+
+  useEffect(() => {
+    if (pdfNumPages != null && currentPage > pdfNumPages) {
+      setCurrentPage(pdfNumPages);
+    }
+  }, [pdfNumPages, currentPage]);
 
   useEffect(() => {
     return () => {
@@ -523,7 +540,13 @@ export default function SubjectWorkspacePage() {
                   <span>{currentPage}</span>
                   <button
                     type="button"
-                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    onClick={() =>
+                      setCurrentPage((prev) =>
+                        preferPdfJsViewer && pdfNumPages != null
+                          ? Math.min(prev + 1, pdfNumPages)
+                          : prev + 1,
+                      )
+                    }
                     className="rounded border border-white/15 px-2 py-1 text-white/80 hover:bg-white/10"
                   >
                     Next
@@ -536,14 +559,18 @@ export default function SubjectWorkspacePage() {
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
                   <div className="rounded-[18px] bg-[#f8f7f4] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
-                    <div className="flex h-[72vh] min-h-[540px] w-full items-start justify-center overflow-y-auto overflow-x-hidden rounded-[12px] bg-white p-2 text-slate-900 sm:h-[82vh] sm:min-h-[680px] sm:p-4">
-                      <div className="h-full w-full overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
-                        <iframe
-                          key={relatedBookId}
-                          src={iframePdfUrl || undefined}
-                          title={relatedBook?.title || "Study Book PDF"}
-                          className="h-full w-full bg-white"
-                        />
+                    <div className="flex h-[72vh] min-h-[360px] w-full items-start justify-center overflow-hidden rounded-[12px] bg-white p-2 text-slate-900 sm:h-[82vh] sm:min-h-[680px] sm:p-4">
+                      <div className="flex h-full min-h-0 w-full flex-col rounded-lg border border-slate-200">
+                        {iframePdfUrl ? (
+                          <StudyPdfPane
+                            bookId={relatedBookId}
+                            pdfBlobUrl={pdfUrl}
+                            iframePdfUrl={iframePdfUrl}
+                            title={relatedBook?.title || "Study Book PDF"}
+                            currentPage={currentPage}
+                            onNumPages={setPdfNumPages}
+                          />
+                        ) : null}
                       </div>
                     </div>
                   </div>

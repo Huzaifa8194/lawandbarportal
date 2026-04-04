@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getPortalAccessState } from "@/app/api/_lib/portal-access";
 
 export async function verifyStudentRequest(request: NextRequest): Promise<{ uid: string }> {
   const authHeader = request.headers.get("authorization");
@@ -11,11 +12,10 @@ export async function verifyStudentRequest(request: NextRequest): Promise<{ uid:
   }
 
   const decoded = await adminAuth.verifyIdToken(token);
-  const userDoc = await adminDb.collection("users").doc(decoded.uid).get();
-  const userData = userDoc.data();
+  const state = await getPortalAccessState(decoded.uid);
 
-  if (!userDoc.exists || userData?.accessEnabled === false) {
-    throw new Error("Access disabled");
+  if (!state.allowed) {
+    throw new Error("Access denied");
   }
 
   return { uid: decoded.uid };

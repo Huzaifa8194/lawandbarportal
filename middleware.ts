@@ -19,7 +19,8 @@ export function middleware(request: NextRequest) {
   const hasAccess = accessCookie !== "0";
 
   if (pathname.startsWith("/auth/login")) {
-    if (isLoggedIn) {
+    // Let logged-in users without portal access stay on login (e.g. sign out, try another account).
+    if (isLoggedIn && hasAccess) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
