@@ -40,6 +40,8 @@ export type StudentAccessDebugResponse = {
   summary: {
     sqeBundlePurchased: boolean;
     portalAccessViaCode: boolean;
+    /** `accessEnabled === true` on user doc — portal godmode for students. */
+    adminAccessOverride: boolean;
     rawAccessEnabled: boolean | null;
     accessExplicitlyFalse: boolean;
     effectiveAccessEnabled: boolean;

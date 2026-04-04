@@ -263,13 +263,6 @@ export default function AdminStudentsPage() {
   }, [debugStudent, closeDebug]);
 
   const toggleAccess = async (student: UserProfile, nextEnabled: boolean) => {
-    if (nextEnabled && student.sqeBundlePurchased !== true && student.portalAccessViaCode !== true) {
-      setFeedback({
-        type: "error",
-        message: "Enable access only for students with an SQE bundle purchase or a redeemed access code.",
-      });
-      return;
-    }
     setAccessTogglingUid(student.uid);
     try {
       await adminApi.updateStudentAccess(student.uid, nextEnabled);
@@ -437,12 +430,9 @@ export default function AdminStudentsPage() {
                   {filteredStudents.map((student) => {
                     const sqeEligible = student.sqeBundlePurchased === true;
                     const codeEligible = student.portalAccessViaCode === true;
-                    const eligible = sqeEligible || codeEligible;
-                    const rawOpen = student.accessEnabledRaw !== false;
-                    const enabled = eligible && rawOpen;
+                    const adminOverride = student.accessEnabledRaw === true;
+                    const enabled = student.accessEnabled === true;
                     const toggling = accessTogglingUid === student.uid;
-                    const disableToggle =
-                      toggling || (!eligible && !enabled);
                     return (
                       <div key={student.uid} className="rounded-xl border border-slate-200 p-4">
                         <button
@@ -468,6 +458,11 @@ export default function AdminStudentsPage() {
                               Access code redeemed
                             </span>
                           ) : null}
+                          {adminOverride ? (
+                            <span className="rounded-md bg-violet-100 px-2 py-1 text-xs font-medium text-violet-900">
+                              Admin access override
+                            </span>
+                          ) : null}
                           <span
                             className={`rounded-md px-2 py-1 text-xs font-medium ${
                               enabled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
@@ -478,7 +473,7 @@ export default function AdminStudentsPage() {
                           <button
                             type="button"
                             onClick={() => toggleAccess(student, !enabled)}
-                            disabled={disableToggle}
+                            disabled={toggling}
                             className="inline-flex min-h-[2.25rem] min-w-[7.5rem] items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {toggling ? <Spinner className="size-4 text-slate-600" /> : null}
@@ -656,9 +651,14 @@ export default function AdminStudentsPage() {
                           {debugData.summary.effectiveAccessEnabled ? "Enabled" : "Disabled"}
                         </p>
                         <p className="mt-1 text-[11px] leading-snug text-slate-600">
-                          Same as student list: <code className="rounded bg-white/80 px-0.5">(bundle || code)</code> and{" "}
-                          <code className="rounded bg-white/80 px-0.5">accessEnabled !== false</code>
+                          Login rule: <code className="rounded bg-white/80 px-0.5">accessEnabled: true</code> (admin
+                          override) or bundle/code when access is not explicitly false.
                         </p>
+                        {debugData.summary.adminAccessOverride ? (
+                          <p className="mt-2 text-[11px] font-semibold text-violet-800">
+                            Admin override ON — bundle/code not required for portal login.
+                          </p>
+                        ) : null}
                       </div>
                       <div
                         className={`rounded-xl border px-3 py-3 ${
@@ -701,7 +701,10 @@ export default function AdminStudentsPage() {
                         {debugData.summary.accessExplicitlyFalse ? (
                           <p className="mt-1 text-[11px] font-medium text-red-700">Explicitly set to false</p>
                         ) : (
-                          <p className="mt-1 text-[11px] text-slate-600">Not false → eligible if bundle or code</p>
+                          <p className="mt-1 text-[11px] text-slate-600">
+                            Set to <code className="rounded bg-white/80 px-0.5">true</code> for godmode; unset →
+                            bundle or code; <code className="rounded bg-white/80 px-0.5">false</code> blocks all.
+                          </p>
                         )}
                       </div>
                     </div>

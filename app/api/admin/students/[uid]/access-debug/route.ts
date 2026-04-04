@@ -110,9 +110,11 @@ export async function GET(
     const accessExplicitlyFalse = rawAccess === false;
     const accessNotExplicitlyDisabled = rawAccess !== false;
     const portalAccessViaCode = userData?.portalAccessViaCode === true;
+    const adminAccessOverride = rawAccess === true;
 
     const effectiveAccessEnabled =
-      accessNotExplicitlyDisabled && (sqeBundlePurchased || portalAccessViaCode);
+      adminAccessOverride ||
+      (accessNotExplicitlyDisabled && (sqeBundlePurchased || portalAccessViaCode));
 
     const explanation: string[] = [];
     explanation.push(`Firestore path: \`users/${uid}\`.`);
@@ -127,9 +129,13 @@ export async function GET(
         explanation.push(
           "Admin has set `accessEnabled: false` — portal access is forced off even if the SQE bundle was purchased.",
         );
+      } else if (rawAccess === true) {
+        explanation.push(
+          "`accessEnabled: true` — **admin override**: student can use the portal with no bundle or access code required.",
+        );
       } else {
         explanation.push(
-          "`accessEnabled` is not `false` — admin gate allows access if the student has a bundle purchase or **portalAccessViaCode** on the user document.",
+          "`accessEnabled` is unset — portal allowed only with SQE bundle orders or **portalAccessViaCode** (unless an admin sets `accessEnabled: true`).",
         );
       }
       if (portalAccessViaCode) {
@@ -161,7 +167,7 @@ export async function GET(
     }
 
     explanation.push(
-      `Effective portal access (same as admin list): \`(sqeBundlePurchased || portalAccessViaCode) && accessEnabled !== false\` → **${effectiveAccessEnabled ? "ENABLED" : "DISABLED"}**.`,
+      `Effective portal access (same as login): \`accessEnabled === true\` **or** (\`accessEnabled !== false\` and (bundle or code)) → **${effectiveAccessEnabled ? "ENABLED" : "DISABLED"}**.`,
     );
 
     return NextResponse.json({
@@ -179,6 +185,7 @@ export async function GET(
       summary: {
         sqeBundlePurchased,
         portalAccessViaCode,
+        adminAccessOverride,
         rawAccessEnabled: rawAccess === undefined ? null : rawAccess,
         accessExplicitlyFalse,
         effectiveAccessEnabled,

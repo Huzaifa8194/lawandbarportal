@@ -42,13 +42,14 @@ export async function GET(request: NextRequest) {
       const eligible = sqeBundlePurchased || portalAccessViaCode;
       const raw = user.accessEnabled;
       const accessEnabledRaw = raw === undefined ? null : raw === true;
+      const adminGodmode = raw === true;
       return {
         ...user,
         sqeBundlePurchased,
         portalAccessViaCode,
         accessEnabledRaw,
-        // Effective portal access: SQE bundle or redeemed admin code, and not explicitly disabled.
-        accessEnabled: eligible && user.accessEnabled !== false,
+        /** Matches portal login: true if admin set accessEnabled, or eligible with access not explicitly false. */
+        accessEnabled: adminGodmode || (eligible && raw !== false),
       };
     });
 
