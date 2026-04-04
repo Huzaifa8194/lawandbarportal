@@ -1,6 +1,7 @@
 "use client";
 
 import PortalShell from "../components/portal-shell";
+import { normalizeMockQuestionIds } from "@/lib/normalize-mock-question-ids";
 import { usePortalLiveData } from "../lib/use-portal-live";
 import Link from "next/link";
 
@@ -14,7 +15,7 @@ export default function MocksPage() {
     >
       <section className="grid gap-4 md:grid-cols-2">
         {mocks.map((mock) => {
-          const qCount = Array.isArray(mock.questionIds) ? mock.questionIds.length : 0;
+          const qCount = normalizeMockQuestionIds(mock.questionIds).length;
           return (
             <article
               key={mock.id}

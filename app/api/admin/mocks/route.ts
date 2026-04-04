@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { normalizeMockQuestionIds } from "@/lib/normalize-mock-question-ids";
 
 type MockExamListRow = {
   id: string;
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
     await target.set(
       {
         ...body,
+        questionIds: normalizeMockQuestionIds(body.questionIds),
         updatedBy: admin.uid,
         updatedAt: new Date().toISOString(),
       },

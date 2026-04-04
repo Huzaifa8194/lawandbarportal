@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStudentRequest } from "../../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { normalizeMockQuestionIds } from "@/lib/normalize-mock-question-ids";
 import type { Mcq, MockExam } from "@/lib/types/admin";
-
-function normalizeQuestionIds(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((id): id is string => typeof id === "string" && id.length > 0);
-}
 
 export async function GET(
   request: NextRequest,
@@ -29,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: "Mock not available" }, { status: 404 });
     }
 
-    const questionIds = normalizeQuestionIds(data.questionIds);
+    const questionIds = normalizeMockQuestionIds(data.questionIds);
     if (!questionIds.length) {
       return NextResponse.json({ error: "Mock has no questions" }, { status: 404 });
     }

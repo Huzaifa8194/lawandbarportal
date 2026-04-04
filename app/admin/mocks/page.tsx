@@ -6,6 +6,7 @@ import AdminShell from "@/app/components/admin/admin-shell";
 import FormSection from "@/app/components/admin/form-section";
 import ToastInline from "@/app/components/admin/toast-inline";
 import { adminApi } from "@/lib/services/admin-api";
+import { normalizeMockQuestionIds } from "@/lib/normalize-mock-question-ids";
 import type { FlkTrack, Mcq, MockExam, Subject } from "@/lib/types/admin";
 
 export default function AdminMocksPage() {
@@ -103,7 +104,7 @@ export default function AdminMocksPage() {
       title: mock.title,
       track: mock.track,
       subjectIds: Array.isArray(mock.subjectIds) ? mock.subjectIds : [],
-      questionIds: Array.isArray(mock.questionIds) ? mock.questionIds : [],
+      questionIds: normalizeMockQuestionIds(mock.questionIds),
       durationMinutes: mock.durationMinutes,
       examMode: mock.examMode,
       revealAnswersInPractice: mock.revealAnswersInPractice,
@@ -268,7 +269,8 @@ export default function AdminMocksPage() {
                 <div key={mock.id} className="rounded-xl border border-slate-200 p-4">
                   <p className="font-medium">{mock.title}</p>
                   <p className="text-sm text-slate-600">
-                    {mock.track} • {mock.questionIds.length} questions • {mock.durationMinutes} min
+                    {mock.track} • {normalizeMockQuestionIds(mock.questionIds).length} questions •{" "}
+                    {mock.durationMinutes} min
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
