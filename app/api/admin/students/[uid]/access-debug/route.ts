@@ -109,8 +109,10 @@ export async function GET(
     const rawAccess = userData?.accessEnabled;
     const accessExplicitlyFalse = rawAccess === false;
     const accessNotExplicitlyDisabled = rawAccess !== false;
+    const portalAccessViaCode = userData?.portalAccessViaCode === true;
 
-    const effectiveAccessEnabled = sqeBundlePurchased && accessNotExplicitlyDisabled;
+    const effectiveAccessEnabled =
+      accessNotExplicitlyDisabled && (sqeBundlePurchased || portalAccessViaCode);
 
     const explanation: string[] = [];
     explanation.push(`Firestore path: \`users/${uid}\`.`);
@@ -126,7 +128,18 @@ export async function GET(
           "Admin has set `accessEnabled: false` — portal access is forced off even if the SQE bundle was purchased.",
         );
       } else {
-        explanation.push("`accessEnabled` is not `false` — admin gate allows access if bundle is purchased.");
+        explanation.push(
+          "`accessEnabled` is not `false` — admin gate allows access if the student has a bundle purchase or **portalAccessViaCode** on the user document.",
+        );
+      }
+      if (portalAccessViaCode) {
+        explanation.push(
+          "**Access code:** `portalAccessViaCode` is true — portal access is granted via a redeemed admin code (in addition to or instead of bundle detection).",
+        );
+      } else {
+        explanation.push(
+          "**Access code:** `portalAccessViaCode` is not set — bundle orders (above) are the only automatic student grant besides admin enable rules.",
+        );
       }
     }
 
@@ -148,7 +161,7 @@ export async function GET(
     }
 
     explanation.push(
-      `Effective portal access (same as admin list): \`sqeBundlePurchased && accessEnabled !== false\` → **${effectiveAccessEnabled ? "ENABLED" : "DISABLED"}**.`,
+      `Effective portal access (same as admin list): \`(sqeBundlePurchased || portalAccessViaCode) && accessEnabled !== false\` → **${effectiveAccessEnabled ? "ENABLED" : "DISABLED"}**.`,
     );
 
     return NextResponse.json({
@@ -165,6 +178,7 @@ export async function GET(
       orderQueryErrors: orderErrors,
       summary: {
         sqeBundlePurchased,
+        portalAccessViaCode,
         rawAccessEnabled: rawAccess === undefined ? null : rawAccess,
         accessExplicitlyFalse,
         effectiveAccessEnabled,

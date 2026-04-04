@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { getSqeBundlePurchaserEmailSet } from "../_lib/sqe-bundle-purchase";
-//random comment 2
+
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminRequest(request);
@@ -13,8 +13,21 @@ export async function GET(request: NextRequest) {
         (item) =>
           ({
             uid: item.id,
-            ...(item.data() as { isAdmin?: boolean; email?: string; accessEnabled?: boolean; [key: string]: unknown }),
-          }) as { uid: string; isAdmin?: boolean; email?: string; accessEnabled?: boolean; [key: string]: unknown },
+            ...(item.data() as {
+              isAdmin?: boolean;
+              email?: string;
+              accessEnabled?: boolean;
+              portalAccessViaCode?: boolean;
+              [key: string]: unknown;
+            }),
+          }) as {
+            uid: string;
+            isAdmin?: boolean;
+            email?: string;
+            accessEnabled?: boolean;
+            portalAccessViaCode?: boolean;
+            [key: string]: unknown;
+          },
       )
       .filter((item) => !item.isAdmin);
 
@@ -25,11 +38,14 @@ export async function GET(request: NextRequest) {
     const rows = users.map((user) => {
       const email = user.email ? String(user.email).toLowerCase() : "";
       const sqeBundlePurchased = !!email && purchasedEmailSet.has(email);
+      const portalAccessViaCode = user.portalAccessViaCode === true;
+      const eligible = sqeBundlePurchased || portalAccessViaCode;
       return {
         ...user,
         sqeBundlePurchased,
-        // UI + API contract: access is only "on" when eligible and not explicitly disabled.
-        accessEnabled: sqeBundlePurchased && user.accessEnabled !== false,
+        portalAccessViaCode,
+        // Effective portal access: SQE bundle or redeemed admin code, and not explicitly disabled.
+        accessEnabled: eligible && user.accessEnabled !== false,
       };
     });
 

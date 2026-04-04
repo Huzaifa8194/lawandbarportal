@@ -14,11 +14,16 @@ export async function PATCH(
 
     if (body.accessEnabled) {
       const userSnap = await adminDb.collection("users").doc(uid).get();
-      const email = userSnap.exists ? String(userSnap.data()?.email ?? "") : "";
-      const purchased = await userHasSqeBundlePurchase(adminDb, email);
-      if (!purchased) {
+      const data = userSnap.exists ? (userSnap.data() as { email?: string; portalAccessViaCode?: boolean }) : null;
+      const email = data?.email ? String(data.email) : "";
+      const purchased = email ? await userHasSqeBundlePurchase(adminDb, email) : false;
+      const viaCode = data?.portalAccessViaCode === true;
+      if (!purchased && !viaCode) {
         return NextResponse.json(
-          { error: "This student has not purchased the SQE bundle." },
+          {
+            error:
+              "This student has no qualifying SQE bundle purchase and no redeemed access code on record.",
+          },
           { status: 400 },
         );
       }

@@ -11,8 +11,8 @@ export type PortalAccessState = {
 
 /**
  * Portal access matches admin "Students" effective access:
- * - Non-admin: SQE bundle purchase (orders) AND user.accessEnabled !== false
- * - Admin: user.accessEnabled !== false (no bundle required)
+ * - Non-admin: (SQE bundle purchase OR `portalAccessViaCode` on user doc) AND user.accessEnabled !== false
+ * - Admin: user.accessEnabled !== false (no bundle or code required)
  */
 export async function getPortalAccessState(uid: string): Promise<PortalAccessState> {
   const userDoc = await adminDb.collection("users").doc(uid).get();
@@ -24,6 +24,7 @@ export async function getPortalAccessState(uid: string): Promise<PortalAccessSta
     isAdmin?: boolean;
     accessEnabled?: boolean;
     email?: string;
+    portalAccessViaCode?: boolean;
   };
 
   const isAdmin = Boolean(data?.isAdmin);
@@ -35,6 +36,10 @@ export async function getPortalAccessState(uid: string): Promise<PortalAccessSta
 
   if (isAdmin) {
     return { allowed: true, isAdmin: true, reason: "ok" };
+  }
+
+  if (data?.portalAccessViaCode === true) {
+    return { allowed: true, isAdmin: false, reason: "ok" };
   }
 
   const email = typeof data.email === "string" ? data.email : "";

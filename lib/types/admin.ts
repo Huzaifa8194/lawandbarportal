@@ -6,6 +6,8 @@ export type UserProfile = {
   fullName?: string;
   isAdmin?: boolean;
   accessEnabled?: boolean;
+  /** Granted by redeeming an admin-generated access code (persists on user doc). */
+  portalAccessViaCode?: boolean;
   sqeBundlePurchased?: boolean;
   createdAt?: string;
 };
@@ -35,6 +37,7 @@ export type StudentAccessDebugResponse = {
   orderQueryErrors: { collection: string; message: string }[];
   summary: {
     sqeBundlePurchased: boolean;
+    portalAccessViaCode: boolean;
     rawAccessEnabled: boolean | null;
     accessExplicitlyFalse: boolean;
     effectiveAccessEnabled: boolean;

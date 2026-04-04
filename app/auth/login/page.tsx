@@ -44,8 +44,8 @@ export default async function LoginPage({
             Sign in
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[#121f1d]/65">
-            Use the same student email and password as the main Law &amp; Bar website. Access is verified
-            after sign-in.
+            Use the same student email and password as the main Law &amp; Bar website. We match your account to
+            SQE bundle orders, or you can activate with an administrator-generated access code when prompted.
           </p>
           <LoginForm nextPath={nextPath} />
         </main>

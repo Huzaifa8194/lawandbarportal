@@ -206,9 +206,11 @@ export default function AdminStudentsPage() {
 
   const toggleAccess = async (student: UserProfile, nextEnabled: boolean) => {
     try {
-      // Only SQE-bundle buyers are allowed to have access enabled.
-      if (nextEnabled && student.sqeBundlePurchased !== true) {
-        setFeedback({ type: "error", message: "This student hasn't purchased the SQE bundle yet." });
+      if (nextEnabled && student.sqeBundlePurchased !== true && student.portalAccessViaCode !== true) {
+        setFeedback({
+          type: "error",
+          message: "Enable access only for students with an SQE bundle purchase or a redeemed access code.",
+        });
         return;
       }
       await adminApi.updateStudentAccess(student.uid, nextEnabled);
@@ -326,7 +328,9 @@ export default function AdminStudentsPage() {
             <div className="mt-4 space-y-3">
               {filteredStudents.map((student) => {
                 const sqeEligible = student.sqeBundlePurchased === true;
-                const enabled = sqeEligible && student.accessEnabled !== false;
+                const codeEligible = student.portalAccessViaCode === true;
+                const eligible = sqeEligible || codeEligible;
+                const enabled = eligible && student.accessEnabled !== false;
                 return (
                   <div
                     key={student.uid}
@@ -349,6 +353,11 @@ export default function AdminStudentsPage() {
                       >
                         {sqeEligible ? "SQE bundle purchased" : "No SQE bundle"}
                       </span>
+                      {codeEligible ? (
+                        <span className="rounded-md bg-teal-100 px-2 py-1 text-xs font-medium text-teal-900">
+                          Access code redeemed
+                        </span>
+                      ) : null}
                       <span
                         className={`rounded-md px-2 py-1 text-xs font-medium ${
                           enabled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
@@ -358,7 +367,7 @@ export default function AdminStudentsPage() {
                       </span>
                       <button
                         onClick={() => toggleAccess(student, !enabled)}
-                        disabled={!sqeEligible && enabled === false}
+                        disabled={!eligible && enabled === false}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
                       >
                         {enabled ? "Disable access" : "Enable access"}
@@ -406,7 +415,7 @@ export default function AdminStudentsPage() {
             <form className="mt-4 space-y-3" onSubmit={onCreateCode}>
               <FormSection
                 title="Generate code"
-                helper="Optional email lock makes code valid only for one student email."
+                helper="Students sign in at the portal first; if no store bundle matches their email, they enter this code on the activation step. Optional email lock restricts redemption to one address; expiry is optional."
               >
                 <input
                   value={email}
@@ -433,7 +442,11 @@ export default function AdminStudentsPage() {
                 <div key={code.id} className="rounded-lg border border-slate-200 px-3 py-2">
                   <p className="font-mono text-sm">{code.code}</p>
                   <p className="text-xs text-slate-500">
-                    {code.active ? "Active" : "Inactive"} {code.email ? `• ${code.email}` : ""}
+                    {code.active ? "Active" : "Inactive"}
+                    {code.email ? ` • locked to ${code.email}` : " • any email (after sign-in)"}
+                    {code.expiresAt ? ` • expires ${code.expiresAt}` : ""}
+                    {code.usedAt ? ` • used ${code.usedAt}` : ""}
+                    {code.uid ? ` • uid ${code.uid.slice(0, 8)}…` : ""}
                   </p>
                 </div>
               ))}
@@ -486,7 +499,7 @@ export default function AdminStudentsPage() {
                   <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{debugError}</p>
                 ) : debugData ? (
                   <div className="space-y-5">
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                       <div
                         className={`rounded-xl border px-3 py-3 ${
                           debugData.summary.effectiveAccessEnabled
@@ -499,7 +512,8 @@ export default function AdminStudentsPage() {
                           {debugData.summary.effectiveAccessEnabled ? "Enabled" : "Disabled"}
                         </p>
                         <p className="mt-1 text-[11px] leading-snug text-slate-600">
-                          Same rule as the list: bundle purchased and <code className="rounded bg-white/80 px-0.5">accessEnabled !== false</code>
+                          Same as student list: <code className="rounded bg-white/80 px-0.5">(bundle || code)</code> and{" "}
+                          <code className="rounded bg-white/80 px-0.5">accessEnabled !== false</code>
                         </p>
                       </div>
                       <div
@@ -517,6 +531,22 @@ export default function AdminStudentsPage() {
                           IDs: {debugData.constants.sqeBundleBookIds.join(", ")}
                         </p>
                       </div>
+                      <div
+                        className={`rounded-xl border px-3 py-3 ${
+                          debugData.summary.portalAccessViaCode
+                            ? "border-teal-200 bg-teal-50"
+                            : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <p className="text-xs font-medium text-slate-600">Access code (user doc)</p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {debugData.summary.portalAccessViaCode ? "Redeemed" : "Not set"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-600">
+                          <code className="rounded bg-white/80 px-0.5">portalAccessViaCode</code> after student redeems
+                          an admin code at login.
+                        </p>
+                      </div>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                         <p className="text-xs font-medium text-slate-600">Raw user.accessEnabled</p>
                         <p className="mt-1 font-mono text-sm font-semibold">
@@ -527,7 +557,7 @@ export default function AdminStudentsPage() {
                         {debugData.summary.accessExplicitlyFalse ? (
                           <p className="mt-1 text-[11px] font-medium text-red-700">Explicitly set to false</p>
                         ) : (
-                          <p className="mt-1 text-[11px] text-slate-600">Not false → allowed if bundle ok</p>
+                          <p className="mt-1 text-[11px] text-slate-600">Not false → eligible if bundle or code</p>
                         )}
                       </div>
                     </div>
