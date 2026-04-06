@@ -788,77 +788,75 @@ export default function SubjectWorkspacePage() {
               </div>
             </section>
 
-            <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-white sm:text-xl">
-                    Video Lessons
-                  </h2>
-                  <p className="text-xs text-white/60">
-                    Watch topic walkthroughs while you study this subject.
-                  </p>
+            {filteredVideos.length > 0 ? (
+              <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-white sm:text-xl">
+                      Video Lessons
+                    </h2>
+                    <p className="text-xs text-white/60">
+                      Watch topic walkthroughs while you study this subject.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
+                    {filteredVideos.length} lesson{filteredVideos.length === 1 ? "" : "s"}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
-                  {filteredVideos.length} lesson{filteredVideos.length === 1 ? "" : "s"}
-                </span>
-              </div>
 
-              {selectedVideo ? (
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
-                    <video
-                      key={selectedVideo.id}
-                      src={selectedVideo.fileUrl}
-                      controls
-                      preload="metadata"
-                      className="aspect-video w-full bg-black"
-                    />
-                    <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2.5">
-                      <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
-                      {selectedVideo.description ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-white/65">{selectedVideo.description}</p>
-                      ) : null}
+                {selectedVideo ? (
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                      <video
+                        key={selectedVideo.id}
+                        src={selectedVideo.fileUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full bg-black"
+                      />
+                      <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2.5">
+                        <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
+                        {selectedVideo.description ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-white/65">{selectedVideo.description}</p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="max-h-[420px] space-y-2 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-2">
+                      {filteredVideos.map((video, index) => {
+                        const isActive = video.id === selectedVideoId;
+                        return (
+                          <button
+                            key={video.id}
+                            type="button"
+                            onClick={() => setSelectedVideoId(video.id)}
+                            className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                              isActive
+                                ? "border-[#26d9c0]/60 bg-[#26d9c0]/15"
+                                : "border-white/10 bg-white/5 hover:bg-white/10"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="line-clamp-2 text-sm font-medium text-white">
+                                {index + 1}. {video.title}
+                              </p>
+                              {video.durationSeconds ? (
+                                <span className="shrink-0 rounded bg-black/30 px-1.5 py-0.5 text-[11px] text-white/75">
+                                  {fmtTime(video.durationSeconds)}
+                                </span>
+                              ) : null}
+                            </div>
+                            {video.description ? (
+                              <p className="mt-1 line-clamp-2 text-xs text-white/60">{video.description}</p>
+                            ) : null}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  <div className="max-h-[420px] space-y-2 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-2">
-                    {filteredVideos.map((video, index) => {
-                      const isActive = video.id === selectedVideoId;
-                      return (
-                        <button
-                          key={video.id}
-                          type="button"
-                          onClick={() => setSelectedVideoId(video.id)}
-                          className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                            isActive
-                              ? "border-[#26d9c0]/60 bg-[#26d9c0]/15"
-                              : "border-white/10 bg-white/5 hover:bg-white/10"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="line-clamp-2 text-sm font-medium text-white">
-                              {index + 1}. {video.title}
-                            </p>
-                            {video.durationSeconds ? (
-                              <span className="shrink-0 rounded bg-black/30 px-1.5 py-0.5 text-[11px] text-white/75">
-                                {fmtTime(video.durationSeconds)}
-                              </span>
-                            ) : null}
-                          </div>
-                          {video.description ? (
-                            <p className="mt-1 line-clamp-2 text-xs text-white/60">{video.description}</p>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-5 text-sm text-white/70">
-                  No published videos for this subject yet.
-                </div>
-              )}
-            </section>
+                ) : null}
+              </section>
+            ) : null}
 
             {filteredMocks.length ? (
               <div className="mt-4 flex flex-wrap gap-2">
