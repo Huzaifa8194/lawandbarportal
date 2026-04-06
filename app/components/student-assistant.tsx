@@ -25,6 +25,85 @@ function pageLabel(pathname: string) {
   return "User Portal";
 }
 
+function buildKnowledgeBase(pathname: string, data: ReturnType<typeof usePortalLiveData>) {
+  const { subjects, books, audios, videos, mcqs, mocks, attempts } = data;
+  const pathParts = pathname.split("/").filter(Boolean);
+  const isSubjectWorkspace = pathParts[0] === "subjects" && pathParts[1] && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
+  const subjectId = isSubjectWorkspace ? decodeURIComponent(pathParts[1]) : "";
+  const activeSubject = subjects.find((subject) => subject.id === subjectId) || null;
+
+  const activeSubjectBooks = activeSubject
+    ? books.filter((book) => book.subjectId === activeSubject.id)
+    : [];
+  const activeSubjectAudios = activeSubject
+    ? audios.filter((audio) => audio.subjectId === activeSubject.id)
+    : [];
+  const activeSubjectVideos = activeSubject
+    ? videos.filter((video) => video.subjectId === activeSubject.id)
+    : [];
+  const activeSubjectMocks = activeSubject
+    ? mocks.filter((mock) => mock.subjectIds.includes(activeSubject.id))
+    : [];
+
+  const flk1Subjects = subjects
+    .filter((subject) => subject.track === "FLK 1")
+    .map((subject) => subject.name);
+  const flk2Subjects = subjects
+    .filter((subject) => subject.track === "FLK 2")
+    .map((subject) => subject.name);
+
+  const lines = [
+    "=== LAW & BAR STUDENT PORTAL KNOWLEDGE BASE ===",
+    "",
+    "[Dashboard]",
+    "Purpose: high-level overview of study portal activity.",
+    "Contains: FLK 1 subjects count, FLK 2 subjects count, mock attempts count, activity count, recent mock attempts.",
+    "Typical actions: open subject workspace, open FLK pages, review recent mock results.",
+    "",
+    "[FLK1 Page]",
+    "Purpose: browse FLK 1 subjects only.",
+    "Contains: FLK 1 subjects list cards and links to /subjects/[id].",
+    `Published FLK 1 subjects (${flk1Subjects.length}): ${summarizeTitles(flk1Subjects, 60)}`,
+    "",
+    "[FLK2 Page]",
+    "Purpose: browse FLK 2 subjects only.",
+    "Contains: FLK 2 subjects list cards and links to /subjects/[id].",
+    `Published FLK 2 subjects (${flk2Subjects.length}): ${summarizeTitles(flk2Subjects, 60)}`,
+    "",
+    "[/subjects/[id] Workspace]",
+    "Purpose: detailed per-subject study workspace.",
+    "Contains: PDF study area, notes, highlights, bookmarks, audio player, video lessons, related mock links.",
+    activeSubject
+      ? `Current subject: ${activeSubject.name} (${activeSubject.track})`
+      : "Current subject: not on a subject workspace page right now.",
+    activeSubject
+      ? `Current subject resources: books=${activeSubjectBooks.length}, audios=${activeSubjectAudios.length}, videos=${activeSubjectVideos.length}, related_mocks=${activeSubjectMocks.length}`
+      : "Current subject resources: unavailable (not in /subjects/[id]).",
+    "",
+    "[Mocks Page]",
+    "Purpose: start mock exams and practice MCQs.",
+    "Contains: list of published mocks with track, duration, and mode links (practice/exam).",
+    `Published mocks (${mocks.length}): ${summarizeTitles(mocks.map((mock) => mock.title), 50)}`,
+    "",
+    "[Progress Page]",
+    "Purpose: track learning and assessment progress.",
+    "Contains: subjects viewed, audio played, best/average mock score, subject-view history, mock-attempt history.",
+    `Attempt entries available: ${attempts.length}`,
+    "",
+    "[Global Portal Data Snapshot]",
+    `Current path: ${pathname}`,
+    `Published totals: subjects=${subjects.length}, books=${books.length}, audios=${audios.length}, videos=${videos.length}, mcqs=${mcqs.length}, mocks=${mocks.length}`,
+    `Subject names: ${summarizeTitles(subjects.map((subject) => subject.name), 80)}`,
+    `Book titles: ${summarizeTitles(books.map((book) => book.title), 80)}`,
+    `Audio titles: ${summarizeTitles(audios.map((audio) => audio.title), 80)}`,
+    `Video titles: ${summarizeTitles(videos.map((video) => video.title), 80)}`,
+    "",
+    "Behavior instruction: Prefer portal-grounded answers. If user asks something outside this KB snapshot, mention limitation.",
+  ];
+
+  return lines.join("\n");
+}
+
 export default function StudentAssistant() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -37,46 +116,18 @@ export default function StudentAssistant() {
     },
   ]);
 
-  const { subjects, books, audios, videos, mcqs, mocks, attempts } = usePortalLiveData();
+  const portalData = usePortalLiveData();
+  const { subjects, books, audios, videos, mcqs, mocks, attempts } = portalData;
   const label = pageLabel(pathname);
 
   const context = useMemo(() => {
-    const pageHints: Record<string, string> = {
-      Dashboard:
-        "Dashboard shows FLK counts, recent mock activity, and quick links to FLK subject lists and mock results.",
-      Subjects:
-        "Subjects page links to FLK1 and FLK2 tracks and lists all published subjects.",
-      "FLK 1 Subjects":
-        "FLK 1 page focuses on published FLK 1 subjects and opens each subject workspace.",
-      "FLK 2 Subjects":
-        "FLK 2 page focuses on published FLK 2 subjects and opens each subject workspace.",
-      "Subject Workspace":
-        "Subject workspace includes PDF study, notes, highlights, bookmarks, audio player, videos, and related practice mocks.",
-      "Mock Exams":
-        "Mock exams page provides practice mode and exam mode with duration and question counts.",
-      Progress:
-        "Progress page shows study activity, subject views, and historical mock attempt scores.",
-    };
-
-    return [
-      `Current page: ${label} (${pathname})`,
-      `Page guidance: ${pageHints[label] || "General student portal page."}`,
-      `Published subjects: ${subjects.length}`,
-      `Published books: ${books.length}`,
-      `Published audios: ${audios.length}`,
-      `Published videos: ${videos.length}`,
-      `Published MCQs: ${mcqs.length}`,
-      `Published mocks: ${mocks.length}`,
-      `My attempts: ${attempts.length}`,
-      `Tracks available: FLK 1, FLK 2`,
-      `Subject names: ${summarizeTitles(subjects.map((s) => s.name))}`,
-      `Book titles: ${summarizeTitles(books.map((b) => b.title))}`,
-      `Audio titles: ${summarizeTitles(audios.map((a) => a.title))}`,
-      `Video titles: ${summarizeTitles(videos.map((v) => v.title))}`,
-      `Mock titles: ${summarizeTitles(mocks.map((m) => m.title))}`,
-      `Recent attempt ids: ${summarizeTitles(attempts.map((a) => a.id), 8)}`,
+    const fullKnowledgeBase = buildKnowledgeBase(pathname, portalData);
+    const promptMetadata = [
+      `Current page label: ${label}`,
+      `Recent attempt ids: ${summarizeTitles(attempts.map((attempt) => attempt.id), 8)}`,
     ].join("\n");
-  }, [label, pathname, subjects, books, audios, videos, mcqs, mocks, attempts]);
+    return `${fullKnowledgeBase}\n\n=== PROMPT METADATA ===\n${promptMetadata}`;
+  }, [label, pathname, portalData, attempts]);
 
   const sendMessage = async () => {
     const text = input.trim();
