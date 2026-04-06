@@ -54,6 +54,16 @@ function buildKnowledgeBase(pathname: string, data: ReturnType<typeof usePortalL
 
   const lines = [
     "=== LAW & BAR STUDENT PORTAL KNOWLEDGE BASE ===",
+    "Base URL: https://sqe-portal-lawandbar.vercel.app",
+    "",
+    "[Sitemap]",
+    "Dashboard: https://sqe-portal-lawandbar.vercel.app/",
+    "Subjects index: https://sqe-portal-lawandbar.vercel.app/subjects",
+    "FLK 1: https://sqe-portal-lawandbar.vercel.app/subjects/flk1",
+    "FLK 2: https://sqe-portal-lawandbar.vercel.app/subjects/flk2",
+    "Subject workspace pattern: https://sqe-portal-lawandbar.vercel.app/subjects/{subjectId}",
+    "Mocks: https://sqe-portal-lawandbar.vercel.app/mocks",
+    "Progress: https://sqe-portal-lawandbar.vercel.app/progress",
     "",
     "[Dashboard]",
     "Purpose: high-level overview of study portal activity.",
@@ -106,6 +116,9 @@ function buildKnowledgeBase(pathname: string, data: ReturnType<typeof usePortalL
 
 export default function StudentAssistant() {
   const pathname = usePathname();
+  const pathParts = pathname.split("/").filter(Boolean);
+  const isSubjectWorkspace =
+    pathParts[0] === "subjects" && Boolean(pathParts[1]) && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -161,17 +174,25 @@ export default function StudentAssistant() {
   };
 
   return (
-    <div className="fixed right-3 top-1/2 z-[70] -translate-y-1/2">
+    <div
+      className={`fixed z-[70] ${
+        isSubjectWorkspace ? "right-3 top-1/2 -translate-y-1/2" : "bottom-5 right-5"
+      }`}
+    >
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-l-xl rounded-r-md bg-[#0f172a] px-2 py-3 text-xs font-semibold tracking-wide text-slate-100 shadow-lg ring-1 ring-white/10 hover:bg-[#111c32] [writing-mode:vertical-rl]"
+          className={`bg-[#0f172a] text-slate-100 shadow-lg ring-1 ring-white/10 hover:bg-[#111c32] ${
+            isSubjectWorkspace
+              ? "rounded-l-xl rounded-r-md px-2 py-3 text-xs font-semibold tracking-wide [writing-mode:vertical-rl]"
+              : "rounded-full px-4 py-2 text-sm font-semibold"
+          }`}
         >
           Ask AI
         </button>
       ) : (
-        <div className="h-[min(72vh,620px)] w-[min(88vw,390px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl">
+        <div className="flex h-[min(72vh,620px)] w-[min(88vw,390px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/10 bg-[#0f172a] px-3 py-2">
             <p className="text-sm font-semibold text-slate-100">Study Assistant</p>
             <button
@@ -182,20 +203,22 @@ export default function StudentAssistant() {
               Close
             </button>
           </div>
-          <div className="h-[calc(100%-138px)] space-y-2 overflow-y-auto bg-[#0b1220] p-3">
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`rounded-xl px-3 py-2 text-sm ${
-                  message.role === "assistant"
-                    ? "mr-6 border border-white/10 bg-[#1e293b] text-slate-100"
-                    : "ml-7 border border-[#26d9c0]/35 bg-[#0d4a42] text-[#eafffb]"
-                }`}
-              >
-                {message.content}
-              </div>
-            ))}
-            {loading ? <p className="text-xs text-slate-400">Thinking...</p> : null}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[#0b1220] p-3">
+            <div className="space-y-2">
+              {messages.map((message, index) => (
+                <div
+                  key={`${message.role}-${index}`}
+                  className={`rounded-xl px-3 py-2 text-sm ${
+                    message.role === "assistant"
+                      ? "mr-6 border border-white/10 bg-[#1e293b] text-slate-100"
+                      : "ml-7 border border-[#26d9c0]/35 bg-[#0d4a42] text-[#eafffb]"
+                  }`}
+                >
+                  {message.content}
+                </div>
+              ))}
+              {loading ? <p className="text-xs text-slate-400">Thinking...</p> : null}
+            </div>
           </div>
           <div className="border-t border-white/10 bg-[#0f172a] p-3">
             <textarea
