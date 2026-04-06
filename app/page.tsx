@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import PortalShell from "./components/portal-shell";
 import { useAuth } from "./context/auth-context";
 import { usePortalLiveData } from "./lib/use-portal-live";
@@ -26,6 +26,8 @@ function formatActivityDate(iso?: string) {
 export default function Home() {
   const { user } = useAuth();
   const { subjects, books, audios, attempts, mocks, loading, attemptsLoading } = usePortalLiveData();
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
 
   const firstName = useMemo(() => {
     const dn = user?.displayName?.trim();
@@ -69,6 +71,25 @@ export default function Home() {
       .slice(0, 8);
   }, [attempts]);
 
+  const searchedSubjects = useMemo(() => {
+    if (!normalizedQuery) return [];
+    return subjects
+      .filter((subject) => subject.name.toLowerCase().includes(normalizedQuery))
+      .slice(0, 8);
+  }, [subjects, normalizedQuery]);
+
+  const searchedMocks = useMemo(() => {
+    if (!normalizedQuery) return [];
+    return mocks
+      .filter((mock) => {
+        return (
+          mock.title.toLowerCase().includes(normalizedQuery) ||
+          mock.track.toLowerCase().includes(normalizedQuery)
+        );
+      })
+      .slice(0, 6);
+  }, [mocks, normalizedQuery]);
+
   return (
     <PortalShell title="" subtitle="" hideHeader>
       <div className="space-y-8 sm:space-y-10">
@@ -79,6 +100,46 @@ export default function Home() {
           <p className="mt-2 max-w-2xl text-base text-[#121f1d]/65 sm:text-lg">
             Continue your SQE preparation journey.
           </p>
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <label className="text-sm font-medium text-slate-700" htmlFor="dashboard-search">
+              Search from dashboard
+            </label>
+            <input
+              id="dashboard-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search subjects, tracks, and mocks..."
+              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
+            />
+            {normalizedQuery ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subjects</p>
+                  <div className="mt-2 space-y-1.5">
+                    {searchedSubjects.map((subject) => (
+                      <Link key={subject.id} href={`/subjects/${subject.id}`} className="block text-sm text-slate-800 underline">
+                        {subject.name}
+                      </Link>
+                    ))}
+                    {searchedSubjects.length === 0 ? (
+                      <p className="text-xs text-slate-500">No subject matches.</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mocks</p>
+                  <div className="mt-2 space-y-1.5">
+                    {searchedMocks.map((mock) => (
+                      <Link key={mock.id} href={`/mocks/${mock.id}?mode=practice`} className="block text-sm text-slate-800 underline">
+                        {mock.title}
+                      </Link>
+                    ))}
+                    {searchedMocks.length === 0 ? <p className="text-xs text-slate-500">No mock matches.</p> : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </section>
 
         <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

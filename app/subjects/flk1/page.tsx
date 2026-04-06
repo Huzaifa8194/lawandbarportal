@@ -2,8 +2,11 @@
 
 import PortalShell from "../../components/portal-shell";
 import SubjectsList from "../../components/subjects-list";
+import { useState } from "react";
 
 export default function Flk1SubjectsPage() {
+  const [query, setQuery] = useState("");
+
   return (
     <PortalShell title="" subtitle="" hideHeader>
       <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
@@ -26,7 +29,19 @@ export default function Flk1SubjectsPage() {
           </p>
         </div>
       </header>
-      <SubjectsList track="FLK 1" />
+      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="text-sm font-medium text-slate-700" htmlFor="flk1-subject-search">
+          Search FLK 1 subjects
+        </label>
+        <input
+          id="flk1-subject-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search FLK 1 subject name..."
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
+        />
+      </section>
+      <SubjectsList track="FLK 1" query={query} />
     </PortalShell>
   );
 }

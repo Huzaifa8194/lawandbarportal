@@ -17,6 +17,8 @@ function formatDate(iso: string | undefined) {
 
 export default function ProgressPage() {
   const { subjects, attempts, mocks, books, audios, loading, attemptsLoading } = usePortalLiveData();
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
   const [pdfStates, setPdfStates] = useState<Record<string, PdfStudyState | null>>({});
   const [audioStates, setAudioStates] = useState<Record<string, AudioStudyState | null>>({});
   const [subjectPage, setSubjectPage] = useState(1);
@@ -115,7 +117,7 @@ export default function ProgressPage() {
 
   const sortedSubjectViews = useMemo(() => {
     const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
-    return books
+    const items = books
       .map((book) => {
         const state = pdfStates[book.id];
         if (!state?.updatedAt) return null;
@@ -130,10 +132,26 @@ export default function ProgressPage() {
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [books, pdfStates, subjects]);
+    if (!normalizedQuery) return items;
+    return items.filter((item) => {
+      return (
+        item.subjectName.toLowerCase().includes(normalizedQuery) ||
+        item.track.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [books, pdfStates, subjects, normalizedQuery]);
+
+  const filteredMockAttempts = useMemo(() => {
+    if (!normalizedQuery) return sortedMockAttempts;
+    return sortedMockAttempts.filter((item) => {
+      const title = (mockTitleById.get(item.mockId) ?? `Mock ${item.mockId}`).toLowerCase();
+      const mode = (item.mode ?? "practice").toLowerCase();
+      return title.includes(normalizedQuery) || mode.includes(normalizedQuery);
+    });
+  }, [sortedMockAttempts, normalizedQuery, mockTitleById]);
 
   const subjectTotalPages = Math.max(1, Math.ceil(sortedSubjectViews.length / subjectPageSize) || 1);
-  const mockTotalPages = Math.max(1, Math.ceil(sortedMockAttempts.length / mockPageSize) || 1);
+  const mockTotalPages = Math.max(1, Math.ceil(filteredMockAttempts.length / mockPageSize) || 1);
 
   useEffect(() => {
     if (subjectPage > subjectTotalPages) setSubjectPage(subjectTotalPages);
@@ -150,14 +168,26 @@ export default function ProgressPage() {
 
   const pagedMockAttempts = useMemo(() => {
     const start = (mockPage - 1) * mockPageSize;
-    return sortedMockAttempts.slice(start, start + mockPageSize);
-  }, [sortedMockAttempts, mockPage, mockPageSize]);
+    return filteredMockAttempts.slice(start, start + mockPageSize);
+  }, [filteredMockAttempts, mockPage, mockPageSize]);
 
   return (
     <PortalShell
       title="Progress"
       subtitle="Track your study activity and exam performance."
     >
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="text-sm font-medium text-slate-700" htmlFor="progress-search">
+          Search progress history
+        </label>
+        <input
+          id="progress-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search by subject, track, mock title, or mode..."
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
+        />
+      </section>
       <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <article className="rounded-2xl border border-[#121f1d]/8 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex size-10 items-center justify-center rounded-xl bg-[#26d9c0]/15 text-[#0d4a42]">
@@ -263,7 +293,7 @@ export default function ProgressPage() {
             <DataPagination
               className="mt-4 border-b border-[#121f1d]/8 pb-4"
               label="Mock attempts pagination"
-              total={sortedMockAttempts.length}
+              total={filteredMockAttempts.length}
               page={mockPage}
               pageSize={mockPageSize}
               onPageChange={setMockPage}
@@ -311,6 +341,9 @@ export default function ProgressPage() {
                 No mock attempts yet. Complete a mock under Mock exams — practice and exam runs both
                 appear here.
               </p>
+            ) : null}
+            {!loading && !attemptsLoading && attempts.length > 0 && filteredMockAttempts.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[#121f1d]/55">No mock attempts match your search.</p>
             ) : null}
           </div>
         </article>

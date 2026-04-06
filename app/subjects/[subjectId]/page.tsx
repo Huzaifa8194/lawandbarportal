@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import StudyPdfPane, { usePreferPdfJsViewer } from "@/app/components/student/study-pdf-pane";
+import StudentAssistant from "@/app/components/student-assistant";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 import { useAuth } from "../../context/auth-context";
 
@@ -74,6 +75,24 @@ export default function SubjectWorkspacePage() {
   const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
   const relatedVideos = videos.filter((item) => item.subjectId === params.subjectId);
   const relatedMocks = mocks.filter((item) => item.subjectIds.includes(params.subjectId));
+  const [workspaceQuery, setWorkspaceQuery] = useState("");
+  const normalizedWorkspaceQuery = workspaceQuery.trim().toLowerCase();
+  const filteredAudios = useMemo(() => {
+    if (!normalizedWorkspaceQuery) return relatedAudios;
+    return relatedAudios.filter((audio) => audio.title.toLowerCase().includes(normalizedWorkspaceQuery));
+  }, [relatedAudios, normalizedWorkspaceQuery]);
+  const filteredVideos = useMemo(() => {
+    if (!normalizedWorkspaceQuery) return relatedVideos;
+    return relatedVideos.filter((video) => {
+      const titleMatch = video.title.toLowerCase().includes(normalizedWorkspaceQuery);
+      const descriptionMatch = (video.description || "").toLowerCase().includes(normalizedWorkspaceQuery);
+      return titleMatch || descriptionMatch;
+    });
+  }, [relatedVideos, normalizedWorkspaceQuery]);
+  const filteredMocks = useMemo(() => {
+    if (!normalizedWorkspaceQuery) return relatedMocks;
+    return relatedMocks.filter((mock) => mock.title.toLowerCase().includes(normalizedWorkspaceQuery));
+  }, [relatedMocks, normalizedWorkspaceQuery]);
 
   const [activePanel, setActivePanel] = useState<"audios" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,14 +125,16 @@ export default function SubjectWorkspacePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    setSelectedAudioId((prev) => (prev && relatedAudios.some((a) => a.id === prev) ? prev : relatedAudios[0]?.id ?? null));
-  }, [relatedAudios]);
+    setSelectedAudioId((prev) =>
+      prev && filteredAudios.some((audio) => audio.id === prev) ? prev : filteredAudios[0]?.id ?? null,
+    );
+  }, [filteredAudios]);
 
   useEffect(() => {
     setSelectedVideoId((prev) =>
-      prev && relatedVideos.some((video) => video.id === prev) ? prev : relatedVideos[0]?.id ?? null,
+      prev && filteredVideos.some((video) => video.id === prev) ? prev : filteredVideos[0]?.id ?? null,
     );
-  }, [relatedVideos]);
+  }, [filteredVideos]);
 
   useEffect(() => {
     let cancelled = false;
@@ -310,8 +331,8 @@ export default function SubjectWorkspacePage() {
   }, [selectedAudioId, audioReady, audioPosition, audioRate]);
 
   const selectedAudio = useMemo(
-    () => relatedAudios.find((audio) => audio.id === selectedAudioId) ?? null,
-    [relatedAudios, selectedAudioId],
+    () => filteredAudios.find((audio) => audio.id === selectedAudioId) ?? null,
+    [filteredAudios, selectedAudioId],
   );
   const selectedVideo = useMemo(
     () => relatedVideos.find((video) => video.id === selectedVideoId) ?? null,
@@ -422,7 +443,7 @@ export default function SubjectWorkspacePage() {
               />
               <StudyBadge
                 active={activePanel === "audios"}
-                label={`Audios (${relatedAudios.length})`}
+                label={`Audios (${filteredAudios.length})`}
                 onClick={() => setActivePanel((prev) => (prev === "audios" ? null : "audios"))}
               />
             </div>
@@ -436,10 +457,10 @@ export default function SubjectWorkspacePage() {
         <section className="sticky top-[76px] z-30 border-b border-white/10 bg-[#101b1a]/95 px-4 py-3 backdrop-blur sm:px-6">
           {activePanel === "audios" ? (
             <div className="flex flex-wrap items-center gap-2">
-              {!relatedAudios.length ? (
+              {!filteredAudios.length ? (
                 <p className="text-sm text-white/70">No audio lessons published for this subject yet.</p>
               ) : (
-                relatedAudios.map((audio) => (
+                filteredAudios.map((audio) => (
                   <button
                     key={audio.id}
                     type="button"
@@ -491,6 +512,15 @@ export default function SubjectWorkspacePage() {
                   </label>
                 ) : null}
               </div>
+                <label className="min-w-[220px] shrink-0 text-white/75">
+                  <span className="mb-1 block text-[11px] text-white/55">Search in this workspace</span>
+                  <input
+                    value={workspaceQuery}
+                    onChange={(event) => setWorkspaceQuery(event.target.value)}
+                    placeholder="Search videos, audios, mocks..."
+                    className="w-full rounded-lg border border-white/20 bg-[#0d1514] px-2 py-1.5 text-xs text-white placeholder:text-white/35"
+                  />
+                </label>
               {relatedBook ? (
                 <div className="flex items-center gap-2">
                   <button
@@ -769,7 +799,7 @@ export default function SubjectWorkspacePage() {
                   </p>
                 </div>
                 <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
-                  {relatedVideos.length} lesson{relatedVideos.length === 1 ? "" : "s"}
+                  {filteredVideos.length} lesson{filteredVideos.length === 1 ? "" : "s"}
                 </span>
               </div>
 
@@ -792,7 +822,7 @@ export default function SubjectWorkspacePage() {
                   </div>
 
                   <div className="max-h-[420px] space-y-2 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-2">
-                    {relatedVideos.map((video, index) => {
+                    {filteredVideos.map((video, index) => {
                       const isActive = video.id === selectedVideoId;
                       return (
                         <button
@@ -830,9 +860,9 @@ export default function SubjectWorkspacePage() {
               )}
             </section>
 
-            {relatedMocks.length ? (
+            {filteredMocks.length ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                {relatedMocks.slice(0, 3).map((mock) => (
+                {filteredMocks.slice(0, 3).map((mock) => (
                   <Link
                     key={mock.id}
                     href={`/mocks/${mock.id}?mode=practice`}
@@ -894,6 +924,7 @@ export default function SubjectWorkspacePage() {
           </div>
         )}
       </footer>
+      <StudentAssistant />
     </div>
   );
 }

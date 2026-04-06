@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import LogoutButton from "./logout-button";
 import { useAuth } from "../context/auth-context";
+import StudentAssistant from "./student-assistant";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
@@ -13,7 +14,6 @@ const navItems = [
   { href: "/subjects/flk2", label: "FLK 2" },
   { href: "/mocks", label: "Mock Exams" },
   { href: "/progress", label: "Progress" },
-  { href: "/search", label: "Search" },
   { href: "/admin", label: "Admin" },
 ];
 
@@ -219,6 +219,7 @@ export default function PortalShell({
           <div className="space-y-6">{children}</div>
         </main>
       </div>
+      <StudentAssistant />
     </div>
   );
 }

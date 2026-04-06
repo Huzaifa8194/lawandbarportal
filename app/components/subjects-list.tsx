@@ -8,6 +8,7 @@ import SubjectsGridSkeleton from "./subjects-grid-skeleton";
 
 type SubjectsListProps = {
   track?: FlkTrack;
+  query?: string;
 };
 
 function subjectDescription(book: { description?: string; title: string } | undefined) {
@@ -18,13 +19,18 @@ function subjectDescription(book: { description?: string; title: string } | unde
   return "Study resources, audio, and practice for this subject.";
 }
 
-export default function SubjectsList({ track }: SubjectsListProps) {
+export default function SubjectsList({ track, query = "" }: SubjectsListProps) {
   const { subjects, books, audios, loading } = usePortalLiveData();
+  const normalizedQuery = query.trim().toLowerCase();
 
   const filteredSubjects = useMemo(() => {
     const list = track ? subjects.filter((s) => s.track === track) : [...subjects];
-    return list.sort((a, b) => a.order - b.order);
-  }, [subjects, track]);
+    const searched = list.filter((subject) => {
+      if (!normalizedQuery) return true;
+      return subject.name.toLowerCase().includes(normalizedQuery);
+    });
+    return searched.sort((a, b) => a.order - b.order);
+  }, [subjects, track, normalizedQuery]);
 
   if (loading) {
     return <SubjectsGridSkeleton />;

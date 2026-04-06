@@ -26,6 +26,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
+GROQ_API_KEY=
 ```
 
 3) Run the app:
@@ -64,6 +65,11 @@ Protected pages include:
 - `/progress`
 - `/search`
 - `/admin`
+
+Student AI assistant:
+
+- Add `GROQ_API_KEY` in `.env.local` to enable the chatbot.
+- The assistant is available in user pages and uses page-aware context (subjects, mocks, progress, and current page data).
 
 Admin CRUD modules:
 

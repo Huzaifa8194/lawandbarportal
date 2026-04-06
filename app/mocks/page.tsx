@@ -4,9 +4,21 @@ import PortalShell from "../components/portal-shell";
 import { normalizeMockQuestionIds } from "@/lib/normalize-mock-question-ids";
 import { usePortalLiveData } from "../lib/use-portal-live";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 export default function MocksPage() {
   const { mocks, loading } = usePortalLiveData({ includeAttempts: false });
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredMocks = useMemo(() => {
+    if (!normalizedQuery) return mocks;
+    return mocks.filter((mock) => {
+      return (
+        mock.title.toLowerCase().includes(normalizedQuery) ||
+        mock.track.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [mocks, normalizedQuery]);
 
   return (
     <PortalShell
@@ -32,9 +44,21 @@ export default function MocksPage() {
           need.
         </p>
       </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="text-sm font-medium text-slate-700" htmlFor="mocks-search">
+          Search mock exams
+        </label>
+        <input
+          id="mocks-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search by mock title or track..."
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
+        />
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        {mocks.map((mock) => {
+        {filteredMocks.map((mock) => {
           const qCount = normalizeMockQuestionIds(mock.questionIds).length;
           return (
             <article
@@ -161,9 +185,9 @@ export default function MocksPage() {
           );
         })}
 
-        {!loading && mocks.length === 0 ? (
+        {!loading && filteredMocks.length === 0 ? (
           <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-            No published mocks yet. Your programme team can add them from the admin panel.
+            No mocks match your search yet.
           </div>
         ) : null}
 

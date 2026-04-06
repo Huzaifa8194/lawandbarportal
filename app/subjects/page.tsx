@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import PortalShell from "../components/portal-shell";
 import SubjectsList from "../components/subjects-list";
 
 export default function SubjectsPage() {
+  const [query, setQuery] = useState("");
+
   return (
     <PortalShell
       title="FLK Subjects"
@@ -40,13 +43,25 @@ export default function SubjectsPage() {
       </section>
 
       <section className="space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <label className="text-sm font-medium text-slate-700" htmlFor="subjects-search">
+            Search subjects
+          </label>
+          <input
+            id="subjects-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by subject name..."
+            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 placeholder:text-slate-400 focus:ring"
+          />
+        </div>
         <h3 className="text-lg font-semibold">FLK1 Subjects</h3>
-        <SubjectsList track="FLK 1" />
+        <SubjectsList track="FLK 1" query={query} />
       </section>
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold">FLK2 Subjects</h3>
-        <SubjectsList track="FLK 2" />
+        <SubjectsList track="FLK 2" query={query} />
       </section>
     </PortalShell>
   );
