@@ -331,6 +331,9 @@ export default function SubjectWorkspacePage() {
         .slice(0, 8),
     [notes],
   );
+  const pageNotesPreview = useMemo(() => pageNotes.slice(0, 4), [pageNotes]);
+  const pageHighlightsPreview = useMemo(() => pageHighlights.slice(0, 4), [pageHighlights]);
+  const bookmarksPreview = useMemo(() => bookmarks.slice(0, 8), [bookmarks]);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
   const iframePdfUrl = useMemo(() => {
     if (!pdfUrl) return null;
@@ -638,10 +641,10 @@ export default function SubjectWorkspacePage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <div className="max-h-48 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
                     <p className="text-xs font-medium text-white/70">Notes on this page</p>
                     <div className="mt-2 space-y-2">
-                      {pageNotes.map((note) => (
+                      {pageNotesPreview.map((note) => (
                         <div key={note.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
                           <p>{note.text}</p>
                           <button
@@ -654,13 +657,16 @@ export default function SubjectWorkspacePage() {
                         </div>
                       ))}
                       {!pageNotes.length ? <p className="text-xs text-white/45">No notes yet.</p> : null}
+                      {pageNotes.length > pageNotesPreview.length ? (
+                        <p className="text-xs text-white/45">Showing latest {pageNotesPreview.length} notes on this page.</p>
+                      ) : null}
                     </div>
                   </div>
 
-                  <div className="max-h-48 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
                     <p className="text-xs font-medium text-white/70">Highlights on this page</p>
                     <div className="mt-2 space-y-2">
-                      {pageHighlights.map((item) => (
+                      {pageHighlightsPreview.map((item) => (
                         <div key={item.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
                           <p>{item.text}</p>
                           <button
@@ -673,13 +679,18 @@ export default function SubjectWorkspacePage() {
                         </div>
                       ))}
                       {!pageHighlights.length ? <p className="text-xs text-white/45">No highlights yet.</p> : null}
+                      {pageHighlights.length > pageHighlightsPreview.length ? (
+                        <p className="text-xs text-white/45">
+                          Showing latest {pageHighlightsPreview.length} highlights on this page.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
                   <p className="text-xs font-medium text-white/70">Recent notes</p>
                   <div className="mt-2 space-y-2">
                     {recentNotes.map((note) => (
@@ -697,7 +708,7 @@ export default function SubjectWorkspacePage() {
                   </div>
                 </div>
 
-                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
                   <p className="text-xs font-medium text-white/70">Recent highlights</p>
                   <div className="mt-2 space-y-2">
                     {recentHighlights.map((item) => (
@@ -715,10 +726,10 @@ export default function SubjectWorkspacePage() {
                   </div>
                 </div>
 
-                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
                   <p className="text-xs font-medium text-white/70">Bookmarks</p>
                   <div className="mt-2 space-y-1">
-                    {bookmarks.map((mark) => (
+                    {bookmarksPreview.map((mark) => (
                       <button
                         type="button"
                         key={mark.id}
@@ -729,6 +740,9 @@ export default function SubjectWorkspacePage() {
                       </button>
                     ))}
                     {!bookmarks.length ? <p className="text-xs text-white/45">No bookmarks yet.</p> : null}
+                    {bookmarks.length > bookmarksPreview.length ? (
+                      <p className="text-xs text-white/45">Showing latest {bookmarksPreview.length} bookmarks.</p>
+                    ) : null}
                   </div>
                 </div>
               </div>
