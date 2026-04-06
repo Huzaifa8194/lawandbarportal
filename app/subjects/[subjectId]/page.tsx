@@ -20,15 +20,19 @@ function fmtTime(seconds: number) {
   return `${m}:${String(rem).padStart(2, "0")}`;
 }
 
-function StudyBadge({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function StudyBadge({ active, label, onClick }: { active: boolean; label: string; onClick?: () => void }) {
+  const interactive = typeof onClick === "function";
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={!interactive}
       className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
         active
           ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-          : "border-white/10 bg-white/5 text-white/85 hover:bg-white/10"
+          : interactive
+            ? "border-white/10 bg-white/5 text-white/85 hover:bg-white/10"
+            : "cursor-default border-white/10 bg-white/[0.04] text-white/70"
       }`}
     >
       {label}
@@ -71,7 +75,7 @@ export default function SubjectWorkspacePage() {
   const relatedVideos = videos.filter((item) => item.subjectId === params.subjectId);
   const relatedMocks = mocks.filter((item) => item.subjectIds.includes(params.subjectId));
 
-  const [activePanel, setActivePanel] = useState<"highlights" | "notes" | "audios" | null>(null);
+  const [activePanel, setActivePanel] = useState<"audios" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [bookmarks, setBookmarks] = useState<Array<{ id: string; page: number; label: string }>>([]);
   const [notes, setNotes] = useState<PdfNote[]>([]);
@@ -313,6 +317,20 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
+  const recentHighlights = useMemo(
+    () =>
+      [...highlights]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 8),
+    [highlights],
+  );
+  const recentNotes = useMemo(
+    () =>
+      [...notes]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 8),
+    [notes],
+  );
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
   const iframePdfUrl = useMemo(() => {
     if (!pdfUrl) return null;
@@ -320,6 +338,39 @@ export default function SubjectWorkspacePage() {
     return `${pdfUrl}#navpanes=0&toolbar=1&statusbar=0&messages=0`;
   }, [pdfUrl]);
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
+  const noteCountLabel = pageNotes.length ? `${pageNotes.length} on this page` : "No notes on this page";
+  const highlightCountLabel = pageHighlights.length
+    ? `${pageHighlights.length} on this page`
+    : "No highlights on this page";
+
+  const addNote = () => {
+    if (!noteText.trim()) return;
+    setNotes((prev) => [
+      {
+        id: uid(),
+        page: currentPage,
+        text: noteText.trim(),
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+    setNoteText("");
+  };
+
+  const addHighlight = () => {
+    if (!highlightText.trim()) return;
+    setHighlights((prev) => [
+      {
+        id: uid(),
+        page: currentPage,
+        text: highlightText.trim(),
+        color: highlightColor,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+    setHighlightText("");
+  };
 
   return (
     <div className="min-h-screen bg-[#0f1716] text-white">
@@ -349,14 +400,12 @@ export default function SubjectWorkspacePage() {
             </div>
             <div className="flex items-center gap-2">
               <StudyBadge
-                active={activePanel === "highlights"}
-                label="Highlights"
-                onClick={() => setActivePanel((prev) => (prev === "highlights" ? null : "highlights"))}
+                active={false}
+                label={highlightCountLabel}
               />
               <StudyBadge
-                active={activePanel === "notes"}
-                label="Notes"
-                onClick={() => setActivePanel((prev) => (prev === "notes" ? null : "notes"))}
+                active={false}
+                label={noteCountLabel}
               />
               <StudyBadge
                 active={activePanel === "audios"}
@@ -395,151 +444,6 @@ export default function SubjectWorkspacePage() {
             </div>
           ) : null}
 
-          {activePanel === "notes" ? (
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
-              <div>
-                <div className="flex items-center justify-between text-xs text-white/60">
-                  <span>Current page notes</span>
-                  <span>Page {currentPage}</span>
-                </div>
-                <textarea
-                  value={noteText}
-                  onChange={(event) => setNoteText(event.target.value)}
-                  placeholder="Write a quick study note..."
-                  className="mt-2 min-h-24 w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
-                />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!noteText.trim()) return;
-                      setNotes((prev) => [
-                        {
-                          id: uid(),
-                          page: currentPage,
-                          text: noteText.trim(),
-                          createdAt: new Date().toISOString(),
-                        },
-                        ...prev,
-                      ]);
-                      setNoteText("");
-                    }}
-                    className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
-                  >
-                    Save note
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNoteText("")}
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              <div className="max-h-44 space-y-2 overflow-auto rounded-lg border border-white/10 bg-[#0f1716] p-2">
-                {pageNotes.map((note) => (
-                  <div key={note.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
-                    {note.text}
-                  </div>
-                ))}
-                {!pageNotes.length ? <p className="px-2 py-3 text-xs text-white/50">No notes for this page.</p> : null}
-              </div>
-            </div>
-          ) : null}
-
-          {activePanel === "highlights" ? (
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    value={highlightText}
-                    onChange={(event) => setHighlightText(event.target.value)}
-                    placeholder="Paste important passage..."
-                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
-                  />
-                  <select
-                    value={highlightColor}
-                    onChange={(event) => setHighlightColor(event.target.value as PdfHighlight["color"])}
-                    className="rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white"
-                  >
-                    <option value="yellow">Yellow</option>
-                    <option value="green">Green</option>
-                    <option value="blue">Blue</option>
-                    <option value="pink">Pink</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!highlightText.trim()) return;
-                      setHighlights((prev) => [
-                        {
-                          id: uid(),
-                          page: currentPage,
-                          text: highlightText.trim(),
-                          color: highlightColor,
-                          createdAt: new Date().toISOString(),
-                        },
-                        ...prev,
-                      ]);
-                      setHighlightText("");
-                    }}
-                    className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
-                  >
-                    Save
-                  </button>
-                </div>
-
-                <div className="mt-2 max-h-40 space-y-2 overflow-auto rounded-lg border border-white/10 bg-[#0f1716] p-2">
-                  {pageHighlights.map((item) => (
-                    <div key={item.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
-                      <p>{item.text}</p>
-                      <button
-                        type="button"
-                        onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
-                        className="mt-1 text-xs text-white/60 underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  {!pageHighlights.length ? (
-                    <p className="px-2 py-3 text-xs text-white/50">No highlights for this page.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-white/10 bg-[#0f1716] p-3">
-                <p className="text-sm font-medium text-white">Study tools</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBookmarks((prev) => [
-                      { id: uid(), page: currentPage, label: `Page ${currentPage}` },
-                      ...prev,
-                    ])
-                  }
-                  className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90"
-                >
-                  Bookmark current page
-                </button>
-                <div className="mt-3 max-h-32 space-y-1 overflow-auto text-xs text-white/70">
-                  {bookmarks.map((mark) => (
-                    <button
-                      type="button"
-                      key={mark.id}
-                      onClick={() => setCurrentPage(mark.page)}
-                      className="block w-full rounded-md px-2 py-1 text-left hover:bg-white/10"
-                    >
-                      {mark.label}
-                    </button>
-                  ))}
-                  {!bookmarks.length ? <p className="px-2 py-2 text-white/45">No bookmarks yet.</p> : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
         </section>
       ) : null}
 
@@ -637,6 +541,198 @@ export default function SubjectWorkspacePage() {
                 </div>
               )}
             </div>
+
+            <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-white sm:text-xl">
+                    Quick Capture
+                  </h2>
+                  <p className="text-xs text-white/60">
+                    Capture a thought once, save it as note or highlight in one tap.
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
+                  Page {currentPage}
+                </span>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <label className="text-xs text-white/65" htmlFor="note-input">
+                    Note
+                  </label>
+                  <textarea
+                    id="note-input"
+                    value={noteText}
+                    onChange={(event) => setNoteText(event.target.value)}
+                    placeholder="Type a quick note from this page..."
+                    className="mt-1 min-h-24 w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={addNote}
+                      className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
+                    >
+                      Save as note
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNoteText("")}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBookmarks((prev) => [{ id: uid(), page: currentPage, label: `Page ${currentPage}` }, ...prev])
+                      }
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90"
+                    >
+                      Bookmark page
+                    </button>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-white/65" htmlFor="highlight-input">
+                        Highlight
+                      </label>
+                      <select
+                        value={highlightColor}
+                        onChange={(event) => setHighlightColor(event.target.value as PdfHighlight["color"])}
+                        className="rounded-lg border border-white/10 bg-[#0f1716] px-2 py-1.5 text-xs text-white"
+                      >
+                        <option value="yellow">Yellow</option>
+                        <option value="green">Green</option>
+                        <option value="blue">Blue</option>
+                        <option value="pink">Pink</option>
+                      </select>
+                    </div>
+                    <input
+                      id="highlight-input"
+                      value={highlightText}
+                      onChange={(event) => setHighlightText(event.target.value)}
+                      placeholder="Paste important passage..."
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
+                    />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={addHighlight}
+                        className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
+                      >
+                        Save as highlight
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHighlightText("")}
+                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="max-h-48 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                    <p className="text-xs font-medium text-white/70">Notes on this page</p>
+                    <div className="mt-2 space-y-2">
+                      {pageNotes.map((note) => (
+                        <div key={note.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
+                          <p>{note.text}</p>
+                          <button
+                            type="button"
+                            onClick={() => setNotes((prev) => prev.filter((item) => item.id !== note.id))}
+                            className="mt-1 text-xs text-white/60 underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      {!pageNotes.length ? <p className="text-xs text-white/45">No notes yet.</p> : null}
+                    </div>
+                  </div>
+
+                  <div className="max-h-48 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                    <p className="text-xs font-medium text-white/70">Highlights on this page</p>
+                    <div className="mt-2 space-y-2">
+                      {pageHighlights.map((item) => (
+                        <div key={item.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
+                          <p>{item.text}</p>
+                          <button
+                            type="button"
+                            onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
+                            className="mt-1 text-xs text-white/60 underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      {!pageHighlights.length ? <p className="text-xs text-white/45">No highlights yet.</p> : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <p className="text-xs font-medium text-white/70">Recent notes</p>
+                  <div className="mt-2 space-y-2">
+                    {recentNotes.map((note) => (
+                      <button
+                        key={note.id}
+                        type="button"
+                        onClick={() => setCurrentPage(note.page)}
+                        className="w-full rounded-md bg-white/5 px-2 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
+                      >
+                        <span className="block text-[10px] text-white/50">Page {note.page}</span>
+                        <span className="line-clamp-2">{note.text}</span>
+                      </button>
+                    ))}
+                    {!recentNotes.length ? <p className="text-xs text-white/45">No saved notes yet.</p> : null}
+                  </div>
+                </div>
+
+                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <p className="text-xs font-medium text-white/70">Recent highlights</p>
+                  <div className="mt-2 space-y-2">
+                    {recentHighlights.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setCurrentPage(item.page)}
+                        className="w-full rounded-md bg-white/5 px-2 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
+                      >
+                        <span className="block text-[10px] text-white/50">Page {item.page}</span>
+                        <span className="line-clamp-2">{item.text}</span>
+                      </button>
+                    ))}
+                    {!recentHighlights.length ? <p className="text-xs text-white/45">No saved highlights yet.</p> : null}
+                  </div>
+                </div>
+
+                <div className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <p className="text-xs font-medium text-white/70">Bookmarks</p>
+                  <div className="mt-2 space-y-1">
+                    {bookmarks.map((mark) => (
+                      <button
+                        type="button"
+                        key={mark.id}
+                        onClick={() => setCurrentPage(mark.page)}
+                        className="block w-full rounded-md px-2 py-1 text-left text-xs text-white/80 hover:bg-white/10"
+                      >
+                        {mark.label}
+                      </button>
+                    ))}
+                    {!bookmarks.length ? <p className="text-xs text-white/45">No bookmarks yet.</p> : null}
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
