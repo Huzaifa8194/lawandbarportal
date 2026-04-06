@@ -161,55 +161,55 @@ export default function StudentAssistant() {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-[70]">
+    <div className="fixed right-3 top-1/2 z-[70] -translate-y-1/2">
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-full bg-[#121f1d] px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-[#0d1715]"
+          className="rounded-l-xl rounded-r-md bg-[#0f172a] px-2 py-3 text-xs font-semibold tracking-wide text-slate-100 shadow-lg ring-1 ring-white/10 hover:bg-[#111c32] [writing-mode:vertical-rl]"
         >
           Ask AI
         </button>
       ) : (
-        <div className="w-[min(92vw,380px)] overflow-hidden rounded-2xl border border-[#121f1d]/10 bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-900">Study Assistant</p>
+        <div className="h-[min(72vh,620px)] w-[min(88vw,390px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/10 bg-[#0f172a] px-3 py-2">
+            <p className="text-sm font-semibold text-slate-100">Study Assistant</p>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+              className="rounded-md px-2 py-1 text-xs text-slate-300 hover:bg-white/10 hover:text-white"
             >
               Close
             </button>
           </div>
-          <div className="max-h-[360px] space-y-2 overflow-y-auto bg-slate-50 p-3">
+          <div className="h-[calc(100%-138px)] space-y-2 overflow-y-auto bg-[#0b1220] p-3">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
                 className={`rounded-xl px-3 py-2 text-sm ${
                   message.role === "assistant"
-                    ? "bg-white text-slate-800 ring-1 ring-slate-200"
-                    : "ml-7 bg-[#121f1d] text-white"
+                    ? "mr-6 border border-white/10 bg-[#1e293b] text-slate-100"
+                    : "ml-7 border border-[#26d9c0]/35 bg-[#0d4a42] text-[#eafffb]"
                 }`}
               >
                 {message.content}
               </div>
             ))}
-            {loading ? <p className="text-xs text-slate-500">Thinking...</p> : null}
+            {loading ? <p className="text-xs text-slate-400">Thinking...</p> : null}
           </div>
-          <div className="border-t border-slate-200 p-3">
+          <div className="border-t border-white/10 bg-[#0f172a] p-3">
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder={`Ask about ${label.toLowerCase()}...`}
-              className="h-20 w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 focus:ring"
+              className="h-20 w-full resize-none rounded-xl border border-white/15 bg-[#111827] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 ring-[#26d9c0]/60 focus:ring"
             />
             <div className="mt-2 flex justify-end">
               <button
                 type="button"
                 onClick={sendMessage}
                 disabled={loading || !input.trim()}
-                className="rounded-lg bg-[#121f1d] px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-[#26d9c0] px-3 py-1.5 text-sm font-semibold text-[#053d37] shadow hover:bg-[#3de8d0] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Send
               </button>
