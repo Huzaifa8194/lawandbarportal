@@ -93,6 +93,8 @@ export default function SubjectWorkspacePage() {
   const preferPdfJsViewer = usePreferPdfJsViewer();
   const pdfBlobRef = useRef<string | null>(null);
   const lastLoadedBookRef = useRef<string | null>(null);
+  const notesSectionRef = useRef<HTMLDivElement | null>(null);
+  const highlightsSectionRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -346,6 +348,12 @@ export default function SubjectWorkspacePage() {
     ? `${pageHighlights.length} on this page`
     : "No highlights on this page";
 
+  const scrollToSection = (section: "notes" | "highlights") => {
+    const target = section === "notes" ? notesSectionRef.current : highlightsSectionRef.current;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const addNote = () => {
     if (!noteText.trim()) return;
     setNotes((prev) => [
@@ -405,10 +413,12 @@ export default function SubjectWorkspacePage() {
               <StudyBadge
                 active={false}
                 label={highlightCountLabel}
+                onClick={() => scrollToSection("highlights")}
               />
               <StudyBadge
                 active={false}
                 label={noteCountLabel}
+                onClick={() => scrollToSection("notes")}
               />
               <StudyBadge
                 active={activePanel === "audios"}
@@ -598,7 +608,7 @@ export default function SubjectWorkspacePage() {
                     </button>
                   </div>
 
-                  <div className="mt-4">
+                  <div ref={highlightsSectionRef} className="mt-4 scroll-mt-28">
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="text-xs text-white/65" htmlFor="highlight-input">
                         Highlight
@@ -641,7 +651,7 @@ export default function SubjectWorkspacePage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  <div ref={notesSectionRef} className="scroll-mt-28 rounded-xl border border-white/10 bg-[#0a1110] p-3">
                     <p className="text-xs font-medium text-white/70">Notes on this page</p>
                     <div className="mt-2 space-y-2">
                       {pageNotesPreview.map((note) => (
