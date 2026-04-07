@@ -156,7 +156,7 @@ export default function PortalShell({
     <div className="min-h-screen bg-[#f8f9fa] text-[#121f1d]">
       <header
         className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#121f1d]/10 bg-[#121f1d] px-5 pb-3 md:hidden"
-        style={{ paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" }}
+        style={{ paddingTop: "calc(24px + env(safe-area-inset-top, 0px))" }}
       >
         <Link href="/" className="flex items-center gap-2.5 min-w-0">
           <div className="relative size-9 shrink-0 overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10">

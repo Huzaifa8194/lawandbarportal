@@ -613,6 +613,18 @@ export default function SubjectWorkspacePage() {
                         title={relatedBook?.title || "Study Book PDF"}
                         currentPage={currentPage}
                         onNumPages={setPdfNumPages}
+                        onHighlight={(text, color) => {
+                          setHighlights((prev) => [
+                            {
+                              id: uid(),
+                              page: currentPage,
+                              text,
+                              color,
+                              createdAt: new Date().toISOString(),
+                            },
+                            ...prev,
+                          ]);
+                        }}
                       />
                     ) : null}
                   </div>
