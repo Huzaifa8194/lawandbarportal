@@ -79,7 +79,9 @@ export default function InstallPrompt() {
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
-      clearTimeout(timerRef.current);
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
     };
   }, []);
 
