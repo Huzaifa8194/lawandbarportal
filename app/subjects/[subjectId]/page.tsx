@@ -520,7 +520,7 @@ export default function SubjectWorkspacePage() {
         </section>
       ) : null}
 
-      <main className="px-3 pb-36 pt-4 sm:px-6">
+      <main className="px-3 pb-[calc(170px+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 sm:pb-36">
         <section className="mx-auto mb-3 max-w-[1400px]">
           <h1 className="truncate font-[family-name:var(--font-playfair)] text-xl font-semibold sm:text-3xl">
             {subject?.name || "Subject Study Workspace"}
@@ -998,7 +998,7 @@ export default function SubjectWorkspacePage() {
 
       <footer
         className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
-        style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ paddingBottom: "calc(26px + env(safe-area-inset-bottom, 0px))" }}
       >
         {selectedAudio ? (
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
