@@ -1,4 +1,4 @@
-export const metadata = { title: "Offline" };
+"use client";
 
 export default function OfflinePage() {
   return (
@@ -9,7 +9,7 @@ export default function OfflinePage() {
           Please check your internet connection and try again.
         </p>
         <button
-          onClick={() => typeof window !== "undefined" && window.location.reload()}
+          onClick={() => window.location.reload()}
           className="mt-4 inline-block rounded-lg bg-lb-accent px-6 py-3 text-sm font-semibold text-lb-sidebar transition hover:opacity-90"
         >
           Retry
