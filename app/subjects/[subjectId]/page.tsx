@@ -430,31 +430,17 @@ export default function SubjectWorkspacePage() {
         style={{ paddingTop: "calc(14px + env(safe-area-inset-top, 0px))" }}
       >
         <div className="px-4 pb-3 sm:px-6">
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-xs text-white/55">
-                <Link
-                  href={backTrackHref}
-                  className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-white/80 hover:bg-white/10"
-                  aria-label="Back"
-                >
-                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                  <span className="hidden sm:inline">Back</span>
-                </Link>
-                <div className="hidden min-w-0 items-center gap-2 sm:flex">
-                  <Link href={backTrackHref} className="hover:text-[#26d9c0]">
-                    {subject?.track || "FLK"}
-                  </Link>
-                  <span>/</span>
-                  <span>Study</span>
-                </div>
-              </div>
-              <h1 className="truncate font-[family-name:var(--font-playfair)] text-lg font-semibold sm:text-2xl">
-                {subject?.name || "Subject Study Workspace"}
-              </h1>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              href={backTrackHref}
+              className="inline-flex min-h-[40px] shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-white/85 hover:bg-white/10"
+              aria-label="Back"
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline text-sm">Back</span>
+            </Link>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <StudyBadge
                 active={false}
@@ -491,13 +477,23 @@ export default function SubjectWorkspacePage() {
               />
             </div>
           </div>
+          <div className="mt-1 hidden items-center gap-2 text-xs text-white/55 sm:flex">
+            <Link href={backTrackHref} className="hover:text-[#26d9c0]">
+              {subject?.track || "FLK"}
+            </Link>
+            <span>/</span>
+            <span>Study</span>
+          </div>
           {pdfMessage ? <p className="mt-2 text-xs text-amber-300">{pdfMessage}</p> : null}
           {audioMessage ? <p className="mt-1 text-xs text-amber-300">{audioMessage}</p> : null}
         </div>
       </header>
 
       {activePanel ? (
-        <section className="sticky top-[76px] z-30 border-b border-white/10 bg-[#101b1a]/95 px-4 py-3 backdrop-blur sm:px-6">
+        <section
+          className="sticky z-30 border-b border-white/10 bg-[#101b1a]/95 px-4 py-3 backdrop-blur sm:px-6"
+          style={{ top: "calc(68px + env(safe-area-inset-top, 0px))" }}
+        >
           {activePanel === "audios" ? (
             <div className="flex flex-wrap items-center gap-2">
               {!filteredAudios.length ? (
@@ -525,6 +521,12 @@ export default function SubjectWorkspacePage() {
       ) : null}
 
       <main className="px-3 pb-36 pt-4 sm:px-6">
+        <section className="mx-auto mb-3 max-w-[1400px]">
+          <h1 className="truncate font-[family-name:var(--font-playfair)] text-xl font-semibold sm:text-3xl">
+            {subject?.name || "Subject Study Workspace"}
+          </h1>
+          <p className="mt-1 text-xs text-white/55 sm:hidden">{subject?.track || "FLK"} / Study</p>
+        </section>
         {!loading && !subject ? (
           <section className="mx-auto max-w-3xl rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
             Subject not found or not published.
