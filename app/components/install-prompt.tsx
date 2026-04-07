@@ -56,7 +56,7 @@ export default function InstallPrompt() {
   const [phase, setPhase] = useState<"hidden" | "entering" | "visible" | "exiting">("hidden");
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSTip, setShowIOSTip] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isStandalone() || !isMobileUA()) return;
