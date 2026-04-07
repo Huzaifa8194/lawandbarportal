@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import "@cyntler/react-doc-viewer/dist/index.css";
 import { AuthProvider } from "./context/auth-context";
+import RegisterSW from "./components/register-sw";
+import InstallPrompt from "./components/install-prompt";
 
 const siteTitle = "Law & Bar";
 const siteDescription =
@@ -38,6 +40,14 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#121f1d",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   metadataBase: metadataBase(),
   title: { default: siteTitle, template: `%s · ${siteTitle}` },
@@ -45,6 +55,11 @@ export const metadata: Metadata = {
   applicationName: siteTitle,
   generator: null,
   robots: { index: false, follow: false },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: siteTitle,
+  },
   openGraph: {
     type: "website",
     title: siteTitle,
@@ -55,6 +70,9 @@ export const metadata: Metadata = {
     card: "summary",
     title: siteTitle,
     description: siteDescription,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
@@ -68,8 +86,18 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
     >
+      <head>
+        <link
+          rel="apple-touch-icon"
+          href="/web-app-manifest-192x192.png"
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
-        <AuthProvider>{children}</AuthProvider>
+        <RegisterSW />
+        <AuthProvider>
+          {children}
+          <InstallPrompt />
+        </AuthProvider>
       </body>
     </html>
   );
