@@ -21,14 +21,27 @@ function fmtTime(seconds: number) {
   return `${m}:${String(rem).padStart(2, "0")}`;
 }
 
-function StudyBadge({ active, label, onClick }: { active: boolean; label: string; onClick?: () => void }) {
+function StudyBadge({
+  active,
+  label,
+  icon,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  icon?: React.ReactNode;
+  count?: number;
+  onClick?: () => void;
+}) {
   const interactive = typeof onClick === "function";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!interactive}
-      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+      title={label}
+      className={`relative flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm font-medium transition sm:px-3 ${
         active
           ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
           : interactive
@@ -36,7 +49,13 @@ function StudyBadge({ active, label, onClick }: { active: boolean; label: string
             : "cursor-default border-white/10 bg-white/[0.04] text-white/70"
       }`}
     >
-      {label}
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+      {count != null && count > 0 && (
+        <span className="flex size-4 items-center justify-center rounded-full bg-[#26d9c0]/25 text-[10px] font-bold text-[#6cf4e0] sm:size-5 sm:text-xs">
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -406,17 +425,20 @@ export default function SubjectWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[#0f1716] text-white">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f1716]/95 backdrop-blur">
-        <div className="px-4 py-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f1716]/95 backdrop-blur safe-top">
+        <div className="px-4 py-3 safe-x sm:px-6">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs text-white/55">
                 <Link
                   href={backTrackHref}
                   className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-white/80 hover:bg-white/10"
+                  aria-label="Back"
                 >
-                  <span aria-hidden>←</span>
-                  <span>Back</span>
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="hidden sm:inline">Back</span>
                 </Link>
                 <div className="hidden min-w-0 items-center gap-2 sm:flex">
                   <Link href={backTrackHref} className="hover:text-[#26d9c0]">
@@ -426,24 +448,42 @@ export default function SubjectWorkspacePage() {
                   <span>Study</span>
                 </div>
               </div>
-              <h1 className="truncate font-[family-name:var(--font-playfair)] text-xl font-semibold sm:text-2xl">
+              <h1 className="truncate font-[family-name:var(--font-playfair)] text-lg font-semibold sm:text-2xl">
                 {subject?.name || "Subject Study Workspace"}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <StudyBadge
                 active={false}
                 label={highlightCountLabel}
+                icon={
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                }
+                count={pageHighlights.length}
                 onClick={() => scrollToSection("highlights")}
               />
               <StudyBadge
                 active={false}
                 label={noteCountLabel}
+                icon={
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                }
+                count={pageNotes.length}
                 onClick={() => scrollToSection("notes")}
               />
               <StudyBadge
                 active={activePanel === "audios"}
                 label={`Audios (${filteredAudios.length})`}
+                icon={
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0l-4-4m4 4l4-4M9.172 9.172a4 4 0 015.656 0" />
+                  </svg>
+                }
+                count={filteredAudios.length}
                 onClick={() => setActivePanel((prev) => (prev === "audios" ? null : "audios"))}
               />
             </div>
@@ -481,7 +521,7 @@ export default function SubjectWorkspacePage() {
         </section>
       ) : null}
 
-      <main className="px-3 pb-36 pt-4 sm:px-6">
+      <main className="px-3 pb-36 pt-4 safe-x sm:px-6">
         {!loading && !subject ? (
           <section className="mx-auto max-w-3xl rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
             Subject not found or not published.
@@ -512,8 +552,8 @@ export default function SubjectWorkspacePage() {
                   </label>
                 ) : null}
               </div>
-                <label className="min-w-[220px] shrink-0 text-white/75">
-                  <span className="mb-1 block text-[11px] text-white/55">Search in this workspace</span>
+                <label className="min-w-0 flex-shrink sm:min-w-[220px] sm:shrink-0 text-white/75">
+                  <span className="mb-1 block text-[11px] text-white/55">Search workspace</span>
                   <input
                     value={workspaceQuery}
                     onChange={(event) => setWorkspaceQuery(event.target.value)}
@@ -522,15 +562,19 @@ export default function SubjectWorkspacePage() {
                   />
                 </label>
               {relatedBook ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    className="rounded border border-white/15 px-2 py-1 text-white/80 hover:bg-white/10"
+                    aria-label="Previous page"
+                    className="min-h-[32px] min-w-[32px] rounded border border-white/15 px-1.5 py-1 text-white/80 active:bg-white/10 sm:px-2"
                   >
-                    Prev
+                    <svg className="mx-auto size-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="hidden sm:inline text-xs">Prev</span>
                   </button>
-                  <span>{currentPage}</span>
+                  <span className="text-xs tabular-nums">{currentPage}{pdfNumPages ? `/${pdfNumPages}` : ""}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -540,9 +584,13 @@ export default function SubjectWorkspacePage() {
                           : prev + 1,
                       )
                     }
-                    className="rounded border border-white/15 px-2 py-1 text-white/80 hover:bg-white/10"
+                    aria-label="Next page"
+                    className="min-h-[32px] min-w-[32px] rounded border border-white/15 px-1.5 py-1 text-white/80 active:bg-white/10 sm:px-2"
                   >
-                    Next
+                    <svg className="mx-auto size-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="hidden sm:inline text-xs">Next</span>
                   </button>
                 </div>
               ) : null}
@@ -585,24 +633,58 @@ export default function SubjectWorkspacePage() {
               )}
             </div>
 
-            <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-white sm:text-xl">
+            <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-3 sm:p-5">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h2 className="font-[family-name:var(--font-playfair)] text-base font-semibold text-white sm:text-xl">
                     Quick Capture
                   </h2>
-                  <p className="text-xs text-white/60">
-                    Capture a thought once, save it as note or highlight in one tap.
+                  <p className="text-[11px] text-white/50 sm:text-xs sm:text-white/60">
+                    Save notes &amp; highlights in one tap.
                   </p>
                 </div>
-                <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
+                <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
                   Page {currentPage}
                 </span>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+              {/* Quick actions row — bookmark + color picker always visible */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBookmarks((prev) => [{ id: uid(), page: currentPage, label: `Page ${currentPage}` }, ...prev])
+                  }
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 active:bg-white/10"
+                >
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  <span className="hidden sm:inline">Bookmark page</span>
+                </button>
+                <div className="flex items-center gap-1">
+                  {(["yellow", "green", "blue", "pink"] as const).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setHighlightColor(c)}
+                      aria-label={`${c} highlight`}
+                      className={`size-7 rounded-full border-2 transition sm:size-8 ${
+                        highlightColor === c ? "border-white scale-110" : "border-transparent opacity-70 hover:opacity-100"
+                      }`}
+                      style={{
+                        backgroundColor:
+                          c === "yellow" ? "#fef08a" : c === "green" ? "#bbf7d0" : c === "blue" ? "#bfdbfe" : "#fbcfe8",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                {/* Note input */}
                 <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <label className="text-xs text-white/65" htmlFor="note-input">
+                  <label className="text-xs font-medium text-white/65" htmlFor="note-input">
                     Note
                   </label>
                   <textarea
@@ -610,69 +692,50 @@ export default function SubjectWorkspacePage() {
                     value={noteText}
                     onChange={(event) => setNoteText(event.target.value)}
                     placeholder="Type a quick note from this page..."
-                    className="mt-1 min-h-24 w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
+                    rows={3}
+                    className="mt-1 min-h-[72px] w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2.5 text-sm text-white placeholder:text-white/35 sm:min-h-24"
                   />
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       onClick={addNote}
-                      className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
+                      className="min-h-[40px] flex-1 rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea] active:bg-[#26d9c0]/25"
                     >
-                      Save as note
+                      Save note
                     </button>
                     <button
                       type="button"
                       onClick={() => setNoteText("")}
-                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
+                      className="min-h-[40px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
                     >
                       Clear
                     </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setBookmarks((prev) => [{ id: uid(), page: currentPage, label: `Page ${currentPage}` }, ...prev])
-                      }
-                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90"
-                    >
-                      Bookmark page
-                    </button>
                   </div>
 
-                  <div ref={highlightsSectionRef} className="mt-4 scroll-mt-28">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="text-xs text-white/65" htmlFor="highlight-input">
-                        Highlight
-                      </label>
-                      <select
-                        value={highlightColor}
-                        onChange={(event) => setHighlightColor(event.target.value as PdfHighlight["color"])}
-                        className="rounded-lg border border-white/10 bg-[#0f1716] px-2 py-1.5 text-xs text-white"
-                      >
-                        <option value="yellow">Yellow</option>
-                        <option value="green">Green</option>
-                        <option value="blue">Blue</option>
-                        <option value="pink">Pink</option>
-                      </select>
-                    </div>
+                  {/* Highlight input */}
+                  <div ref={highlightsSectionRef} className="mt-4 scroll-mt-28 border-t border-white/10 pt-3">
+                    <label className="text-xs font-medium text-white/65" htmlFor="highlight-input">
+                      Highlight
+                    </label>
                     <input
                       id="highlight-input"
                       value={highlightText}
                       onChange={(event) => setHighlightText(event.target.value)}
                       placeholder="Paste important passage..."
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2 text-sm text-white placeholder:text-white/35"
+                      className="mt-1 min-h-[40px] w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2.5 text-sm text-white placeholder:text-white/35"
                     />
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-2 flex gap-2">
                       <button
                         type="button"
                         onClick={addHighlight}
-                        className="rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea]"
+                        className="min-h-[40px] flex-1 rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea] active:bg-[#26d9c0]/25"
                       >
-                        Save as highlight
+                        Save highlight
                       </button>
                       <button
                         type="button"
                         onClick={() => setHighlightText("")}
-                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
+                        className="min-h-[40px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
                       >
                         Clear
                       </button>
@@ -680,17 +743,25 @@ export default function SubjectWorkspacePage() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {/* Notes + highlights on this page */}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
                   <div ref={notesSectionRef} className="scroll-mt-28 rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                    <p className="text-xs font-medium text-white/70">Notes on this page</p>
-                    <div className="mt-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-white/70">Notes on this page</p>
+                      {pageNotes.length > 0 && (
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60">
+                          {pageNotes.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
                       {pageNotesPreview.map((note) => (
-                        <div key={note.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
-                          <p>{note.text}</p>
+                        <div key={note.id} className="group rounded-lg bg-white/5 px-3 py-2 text-sm">
+                          <p className="leading-relaxed">{note.text}</p>
                           <button
                             type="button"
                             onClick={() => setNotes((prev) => prev.filter((item) => item.id !== note.id))}
-                            className="mt-1 text-xs text-white/60 underline"
+                            className="mt-1.5 min-h-[28px] rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-300 active:bg-red-500/20"
                           >
                             Remove
                           </button>
@@ -698,21 +769,44 @@ export default function SubjectWorkspacePage() {
                       ))}
                       {!pageNotes.length ? <p className="text-xs text-white/45">No notes yet.</p> : null}
                       {pageNotes.length > pageNotesPreview.length ? (
-                        <p className="text-xs text-white/45">Showing latest {pageNotesPreview.length} notes on this page.</p>
+                        <p className="text-xs text-white/45">Showing latest {pageNotesPreview.length} notes.</p>
                       ) : null}
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                    <p className="text-xs font-medium text-white/70">Highlights on this page</p>
-                    <div className="mt-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-white/70">Highlights on this page</p>
+                      {pageHighlights.length > 0 && (
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60">
+                          {pageHighlights.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
                       {pageHighlightsPreview.map((item) => (
-                        <div key={item.id} className="rounded-md bg-white/5 px-2 py-1.5 text-sm">
-                          <p>{item.text}</p>
+                        <div
+                          key={item.id}
+                          className="rounded-lg px-3 py-2 text-sm"
+                          style={{
+                            backgroundColor:
+                              item.color === "yellow" ? "rgba(254,240,138,0.15)"
+                              : item.color === "green" ? "rgba(187,247,208,0.15)"
+                              : item.color === "blue" ? "rgba(191,219,254,0.15)"
+                              : "rgba(251,207,232,0.15)",
+                            borderLeft: `3px solid ${
+                              item.color === "yellow" ? "#fef08a"
+                              : item.color === "green" ? "#86efac"
+                              : item.color === "blue" ? "#93c5fd"
+                              : "#f9a8d4"
+                            }`,
+                          }}
+                        >
+                          <p className="leading-relaxed">{item.text}</p>
                           <button
                             type="button"
                             onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
-                            className="mt-1 text-xs text-white/60 underline"
+                            className="mt-1.5 min-h-[28px] rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-300 active:bg-red-500/20"
                           >
                             Remove
                           </button>
@@ -721,7 +815,7 @@ export default function SubjectWorkspacePage() {
                       {!pageHighlights.length ? <p className="text-xs text-white/45">No highlights yet.</p> : null}
                       {pageHighlights.length > pageHighlightsPreview.length ? (
                         <p className="text-xs text-white/45">
-                          Showing latest {pageHighlightsPreview.length} highlights on this page.
+                          Showing latest {pageHighlightsPreview.length} highlights.
                         </p>
                       ) : null}
                     </div>
@@ -729,19 +823,24 @@ export default function SubjectWorkspacePage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <p className="text-xs font-medium text-white/70">Recent notes</p>
-                  <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <p className="text-xs font-medium text-white/70">Recent notes</p>
+                  </div>
+                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
                     {recentNotes.map((note) => (
                       <button
                         key={note.id}
                         type="button"
                         onClick={() => setCurrentPage(note.page)}
-                        className="w-full rounded-md bg-white/5 px-2 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
+                        className="w-full min-h-[36px] rounded-lg bg-white/5 px-2.5 py-2 text-left text-xs text-white/80 active:bg-white/10"
                       >
-                        <span className="block text-[10px] text-white/50">Page {note.page}</span>
-                        <span className="line-clamp-2">{note.text}</span>
+                        <span className="block text-[10px] font-medium text-[#26d9c0]/60">Page {note.page}</span>
+                        <span className="line-clamp-2 leading-relaxed">{note.text}</span>
                       </button>
                     ))}
                     {!recentNotes.length ? <p className="text-xs text-white/45">No saved notes yet.</p> : null}
@@ -749,17 +848,29 @@ export default function SubjectWorkspacePage() {
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <p className="text-xs font-medium text-white/70">Recent highlights</p>
-                  <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <p className="text-xs font-medium text-white/70">Recent highlights</p>
+                  </div>
+                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
                     {recentHighlights.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => setCurrentPage(item.page)}
-                        className="w-full rounded-md bg-white/5 px-2 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
+                        className="w-full min-h-[36px] rounded-lg px-2.5 py-2 text-left text-xs text-white/80 active:bg-white/10"
+                        style={{
+                          backgroundColor:
+                            item.color === "yellow" ? "rgba(254,240,138,0.08)"
+                            : item.color === "green" ? "rgba(187,247,208,0.08)"
+                            : item.color === "blue" ? "rgba(191,219,254,0.08)"
+                            : "rgba(251,207,232,0.08)",
+                        }}
                       >
-                        <span className="block text-[10px] text-white/50">Page {item.page}</span>
-                        <span className="line-clamp-2">{item.text}</span>
+                        <span className="block text-[10px] font-medium text-[#26d9c0]/60">Page {item.page}</span>
+                        <span className="line-clamp-2 leading-relaxed">{item.text}</span>
                       </button>
                     ))}
                     {!recentHighlights.length ? <p className="text-xs text-white/45">No saved highlights yet.</p> : null}
@@ -767,14 +878,19 @@ export default function SubjectWorkspacePage() {
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <p className="text-xs font-medium text-white/70">Bookmarks</p>
-                  <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    <p className="text-xs font-medium text-white/70">Bookmarks</p>
+                  </div>
+                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
                     {bookmarksPreview.map((mark) => (
                       <button
                         type="button"
                         key={mark.id}
                         onClick={() => setCurrentPage(mark.page)}
-                        className="block w-full rounded-md px-2 py-1 text-left text-xs text-white/80 hover:bg-white/10"
+                        className="block w-full min-h-[32px] rounded-lg bg-white/5 px-2.5 py-1.5 text-left text-xs text-white/80 active:bg-white/10"
                       >
                         {mark.label}
                       </button>
@@ -875,7 +991,7 @@ export default function SubjectWorkspacePage() {
         ) : null}
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 py-2 backdrop-blur sm:px-6">
+      <footer className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 py-2 safe-bottom safe-x backdrop-blur sm:px-6">
         {selectedAudio ? (
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">

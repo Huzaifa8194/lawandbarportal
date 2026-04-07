@@ -76,7 +76,7 @@ export default function StudyPdfPane({
       <div className="flex h-full min-h-0 w-full flex-col">
         <div
           ref={containerRef}
-          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#0b1110]"
+          className="pdf-zoom-container min-h-0 flex-1 overflow-auto bg-[#0b1110]"
         >
           <Document
             key={bookId}

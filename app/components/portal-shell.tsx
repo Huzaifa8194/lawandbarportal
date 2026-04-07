@@ -154,7 +154,7 @@ export default function PortalShell({
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#121f1d]">
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#121f1d]/10 bg-[#121f1d] px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#121f1d]/10 bg-[#121f1d] px-4 py-3 safe-top safe-x md:hidden">
         <Link href="/" className="flex items-center gap-2.5 min-w-0">
           <div className="relative size-9 shrink-0 overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10">
             <Image src="/logo.png" alt="" width={36} height={36} className="size-full object-contain p-0.5" priority />
@@ -200,7 +200,7 @@ export default function PortalShell({
           {sidebar}
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+        <main className="min-w-0 flex-1 px-4 py-6 safe-bottom safe-x sm:px-6 lg:px-10 lg:py-8">
           {!hideHeader ? (
             <header className="mb-6 rounded-2xl border border-[#121f1d]/8 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
