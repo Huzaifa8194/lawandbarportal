@@ -30,6 +30,92 @@ const COLOR_HEX: Record<PdfHighlight["color"], string> = {
   blue: "#93c5fd",
   pink: "#f9a8d4",
 };
+const OVERLAY_BG: Record<PdfHighlight["color"], string> = {
+  yellow: "rgba(254, 240, 138, 0.38)",
+  green: "rgba(134, 239, 172, 0.38)",
+  blue: "rgba(147, 197, 253, 0.38)",
+  pink: "rgba(249, 168, 212, 0.38)",
+};
+
+/**
+ * Searches the react-pdf text layer for each highlight's text (whitespace-
+ * insensitive, case-insensitive) and applies a coloured background to the
+ * matching <span> elements.  Returns a cleanup function that restores the
+ * original inline styles.
+ */
+function applyHighlightMarks(
+  container: HTMLElement,
+  highlights: PdfHighlight[],
+): () => void {
+  const textLayer = container.querySelector(
+    ".react-pdf__Page__textContent",
+  ) as HTMLElement | null;
+  if (!textLayer || !highlights.length) return () => {};
+
+  const spans = Array.from(
+    textLayer.querySelectorAll("span"),
+  ) as HTMLSpanElement[];
+  if (!spans.length) return () => {};
+
+  // Map every character in the concatenated text back to its parent span
+  const charToSpan: HTMLSpanElement[] = [];
+  let fullText = "";
+  for (const span of spans) {
+    const t = span.textContent || "";
+    for (let i = 0; i < t.length; i++) charToSpan.push(span);
+    fullText += t;
+  }
+
+  // Build a whitespace-stripped version + position map so we can match
+  // regardless of how PDF.js splits words across spans
+  const noWsToOrig: number[] = [];
+  let stripped = "";
+  for (let i = 0; i < fullText.length; i++) {
+    if (!/\s/.test(fullText[i])) {
+      noWsToOrig.push(i);
+      stripped += fullText[i];
+    }
+  }
+  const strippedLower = stripped.toLowerCase();
+
+  const modified = new Map<HTMLSpanElement, string>();
+
+  for (const hl of highlights) {
+    const needle = hl.text.replace(/\s/g, "").toLowerCase();
+    if (needle.length < 2) continue;
+
+    let from = 0;
+    while (from < strippedLower.length) {
+      const idx = strippedLower.indexOf(needle, from);
+      if (idx === -1) break;
+
+      const origStart = noWsToOrig[idx];
+      const origEnd = noWsToOrig[idx + needle.length - 1];
+
+      const touched = new Set<HTMLSpanElement>();
+      for (let i = origStart; i <= origEnd; i++) {
+        if (charToSpan[i]) touched.add(charToSpan[i]);
+      }
+
+      for (const span of touched) {
+        if (!modified.has(span)) modified.set(span, span.style.cssText);
+        span.style.backgroundColor =
+          OVERLAY_BG[hl.color] || OVERLAY_BG.yellow;
+        span.style.borderRadius = "2px";
+      }
+
+      from = idx + needle.length;
+    }
+  }
+
+  return () => {
+    for (const [span, orig] of modified) span.style.cssText = orig;
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  SelectionToolbar – floating colour-picker that appears on select  */
+/* ------------------------------------------------------------------ */
 
 function SelectionToolbar({
   containerRef,
@@ -197,6 +283,10 @@ function SelectionToolbar({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  StudyPdfPane                                                       */
+/* ------------------------------------------------------------------ */
+
 type StudyPdfPaneProps = {
   bookId: string;
   pdfBlobUrl: string;
@@ -205,6 +295,7 @@ type StudyPdfPaneProps = {
   currentPage: number;
   onNumPages: (n: number) => void;
   onHighlight?: (text: string, color: PdfHighlight["color"]) => void;
+  pageHighlights?: PdfHighlight[];
 };
 
 export default function StudyPdfPane({
@@ -215,6 +306,7 @@ export default function StudyPdfPane({
   currentPage,
   onNumPages,
   onHighlight,
+  pageHighlights,
 }: StudyPdfPaneProps) {
   const preferPdfJs = usePreferPdfJsViewer();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -234,6 +326,40 @@ export default function StudyPdfPane({
     setPageWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width)));
     return () => ro.disconnect();
   }, [usePdfJs]);
+
+  // Paint saved highlights onto the text layer after react-pdf renders it
+  useEffect(() => {
+    if (!usePdfJs || !pageHighlights?.length) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    let cleanup: (() => void) | null = null;
+    let debounce: ReturnType<typeof setTimeout>;
+
+    const apply = () => {
+      cleanup?.();
+      cleanup = applyHighlightMarks(container, pageHighlights);
+    };
+
+    const debouncedApply = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(apply, 60);
+    };
+
+    // Re-apply whenever react-pdf swaps the text layer DOM (page change, etc.)
+    const observer = new MutationObserver(debouncedApply);
+    observer.observe(container, { childList: true, subtree: true });
+
+    // First paint – wait a tick for the text layer to finish
+    const initial = setTimeout(apply, 120);
+
+    return () => {
+      clearTimeout(initial);
+      clearTimeout(debounce);
+      observer.disconnect();
+      cleanup?.();
+    };
+  }, [usePdfJs, pageHighlights]);
 
   const openExternal = (
     <a

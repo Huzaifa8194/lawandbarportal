@@ -625,6 +625,7 @@ export default function SubjectWorkspacePage() {
                             ...prev,
                           ]);
                         }}
+                        pageHighlights={pageHighlights}
                       />
                     ) : null}
                   </div>
