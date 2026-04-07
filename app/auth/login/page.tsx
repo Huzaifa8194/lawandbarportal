@@ -1,5 +1,6 @@
 import Image from "next/image";
 import LoginForm from "./login-form";
+import InstallBanner from "@/app/components/install-banner";
 
 export default async function LoginPage({
   searchParams,
@@ -49,6 +50,8 @@ export default async function LoginPage({
           </p>
           <LoginForm nextPath={nextPath} />
         </main>
+
+        <InstallBanner />
 
         <p className="mt-6 text-center text-xs leading-relaxed text-white/40">
           Protected access. Unauthorized use may violate our terms of service.
