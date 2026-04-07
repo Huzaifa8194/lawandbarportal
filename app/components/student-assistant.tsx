@@ -371,9 +371,10 @@ export default function StudentAssistant() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+              className="rounded-md px-2 py-1 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Close assistant"
             >
-              \u2715
+              Close
             </button>
           </div>
 
@@ -520,9 +521,9 @@ export default function StudentAssistant() {
                 <button
                   type="button"
                   onClick={goHome}
-                  className="text-[10px] text-slate-500 transition-colors hover:text-[#26d9c0]"
+                  className="rounded-md border border-white/10 px-2 py-1 text-[10px] font-medium text-slate-300 transition-colors hover:border-[#26d9c0]/40 hover:text-[#26d9c0]"
                 >
-                  Switch mode
+                  Back to study modes
                 </button>
               </div>
             </div>

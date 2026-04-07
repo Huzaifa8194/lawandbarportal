@@ -40,6 +40,8 @@ export default async function LoginPage({
           </p>
         </div>
 
+        <InstallBanner />
+
         <main className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/25 sm:p-8">
           <h1 className="text-xl font-semibold tracking-tight text-[#121f1d] sm:text-[1.35rem]">
             Sign in
@@ -50,8 +52,6 @@ export default async function LoginPage({
           </p>
           <LoginForm nextPath={nextPath} />
         </main>
-
-        <InstallBanner />
 
         <p className="mt-6 text-center text-xs leading-relaxed text-white/40">
           Protected access. Unauthorized use may violate our terms of service.

@@ -117,7 +117,7 @@ export default function InstallPrompt() {
     <>
       {/* Animated bottom sheet */}
       <div
-        className={`fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-5 transition-all duration-500 ease-out ${animClass}`}
+        className={`fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-5 transition-all duration-500 ease-out ${animClass}`}
       >
         <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#121f1d] shadow-2xl shadow-black/40">
           {/* Glow accent bar */}
