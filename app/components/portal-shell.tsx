@@ -154,7 +154,10 @@ export default function PortalShell({
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#121f1d]">
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#121f1d]/10 bg-[#121f1d] px-4 py-3 safe-top safe-x md:hidden">
+      <header
+        className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#121f1d]/10 bg-[#121f1d] px-5 pb-3 md:hidden"
+        style={{ paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" }}
+      >
         <Link href="/" className="flex items-center gap-2.5 min-w-0">
           <div className="relative size-9 shrink-0 overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10">
             <Image src="/logo.png" alt="" width={36} height={36} className="size-full object-contain p-0.5" priority />
@@ -165,7 +168,7 @@ export default function PortalShell({
         </Link>
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/15 transition hover:bg-white/15"
+          className="inline-flex items-center justify-center rounded-lg bg-white/10 p-2.5 text-white ring-1 ring-white/15 transition hover:bg-white/15"
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => setMobileOpen((o) => !o)}
@@ -193,14 +196,17 @@ export default function PortalShell({
 
       <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-[1600px] md:min-h-screen">
         <aside
-          className={`fixed bottom-0 left-0 top-14 z-50 w-[min(100%,280px)] max-w-[280px] transform transition-transform duration-200 ease-out md:static md:top-auto md:z-0 md:flex md:h-auto md:min-h-screen md:w-[280px] md:max-w-none md:translate-x-0 md:shrink-0 ${
+          className={`fixed bottom-0 left-0 top-0 z-50 w-[min(100%,280px)] max-w-[280px] transform pt-[calc(60px+env(safe-area-inset-top,0px))] transition-transform duration-200 ease-out md:static md:top-auto md:z-0 md:flex md:h-auto md:min-h-screen md:w-[280px] md:max-w-none md:translate-x-0 md:shrink-0 md:pt-0 ${
             mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
           {sidebar}
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 safe-bottom safe-x sm:px-6 lg:px-10 lg:py-8">
+        <main
+          className="min-w-0 flex-1 px-4 pt-6 sm:px-6 lg:px-10 lg:py-8"
+          style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
+        >
           {!hideHeader ? (
             <header className="mb-6 rounded-2xl border border-[#121f1d]/8 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

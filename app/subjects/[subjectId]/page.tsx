@@ -425,8 +425,11 @@ export default function SubjectWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[#0f1716] text-white">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f1716]/95 backdrop-blur safe-top">
-        <div className="px-4 py-3 safe-x sm:px-6">
+      <header
+        className="sticky top-0 z-40 border-b border-white/10 bg-[#0f1716]/95 backdrop-blur"
+        style={{ paddingTop: "calc(14px + env(safe-area-inset-top, 0px))" }}
+      >
+        <div className="px-4 pb-3 sm:px-6">
           <div className="flex items-center justify-between gap-2 sm:gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs text-white/55">
@@ -521,7 +524,7 @@ export default function SubjectWorkspacePage() {
         </section>
       ) : null}
 
-      <main className="px-3 pb-36 pt-4 safe-x sm:px-6">
+      <main className="px-3 pb-36 pt-4 sm:px-6">
         {!loading && !subject ? (
           <section className="mx-auto max-w-3xl rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
             Subject not found or not published.
@@ -991,7 +994,10 @@ export default function SubjectWorkspacePage() {
         ) : null}
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 py-2 safe-bottom safe-x backdrop-blur sm:px-6">
+      <footer
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
+        style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}
+      >
         {selectedAudio ? (
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
