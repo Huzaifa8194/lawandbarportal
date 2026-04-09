@@ -22,13 +22,19 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.url.includes("/api/")) return;
+  if (!event.request.url.startsWith("http://") && !event.request.url.startsWith("https://")) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         if (response.ok && response.type === "basic") {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, clone))
+            .catch(() => {
+              // Ignore cache failures for unsupported or blocked requests.
+            });
         }
         return response;
       })
