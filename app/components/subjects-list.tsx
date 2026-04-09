@@ -9,6 +9,7 @@ import SubjectsGridSkeleton from "./subjects-grid-skeleton";
 type SubjectsListProps = {
   track?: FlkTrack;
   query?: string;
+  basePath?: string;
 };
 
 function subjectDescription(book: { description?: string; title: string } | undefined) {
@@ -19,7 +20,7 @@ function subjectDescription(book: { description?: string; title: string } | unde
   return "Study resources, audio, and practice for this subject.";
 }
 
-export default function SubjectsList({ track, query = "" }: SubjectsListProps) {
+export default function SubjectsList({ track, query = "", basePath = "/subjects" }: SubjectsListProps) {
   const { subjects, books, audios, loading } = usePortalLiveData();
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -48,7 +49,7 @@ export default function SubjectsList({ track, query = "" }: SubjectsListProps) {
         return (
           <Link
             key={subject.id}
-            href={`/subjects/${subject.id}`}
+            href={`${basePath}/${subject.id}`}
             className="group flex flex-col rounded-xl border border-[#121f1d]/10 bg-white p-5 shadow-sm transition hover:border-[#26d9c0]/35 hover:shadow-md sm:p-6"
           >
             <div className="flex items-start justify-between gap-3">

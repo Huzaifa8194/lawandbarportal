@@ -117,7 +117,7 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subjects</p>
                   <div className="mt-2 space-y-1.5">
                     {searchedSubjects.map((subject) => (
-                      <Link key={subject.id} href={`/subjects/${subject.id}`} className="block text-sm text-slate-800 underline">
+                      <Link key={subject.id} href={`/books/${subject.id}`} className="block text-sm text-slate-800 underline">
                         {subject.name}
                       </Link>
                     ))}
@@ -214,7 +214,7 @@ export default function Home() {
               {preview(flk1Subjects, 6).map((subject) => (
                 <li key={subject.id}>
                   <Link
-                    href={`/subjects/${subject.id}`}
+                    href={`/books/${subject.id}`}
                     className="group flex items-center justify-between gap-3 py-3.5 text-sm font-medium text-[#121f1d] transition hover:text-[#0d4a42]"
                   >
                     <span className="min-w-0 truncate">{subject.name}</span>
@@ -235,7 +235,7 @@ export default function Home() {
               ) : null}
             </ul>
             <Link
-              href="/subjects/flk1"
+              href="/books/flk1"
               className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#0d4a42] transition hover:text-[#26d9c0]"
             >
               View all FLK 1 subjects
@@ -256,7 +256,7 @@ export default function Home() {
               {preview(flk2Subjects, 6).map((subject) => (
                 <li key={subject.id}>
                   <Link
-                    href={`/subjects/${subject.id}`}
+                    href={`/books/${subject.id}`}
                     className="group flex items-center justify-between gap-3 py-3.5 text-sm font-medium text-[#121f1d] transition hover:text-[#0d4a42]"
                   >
                     <span className="min-w-0 truncate">{subject.name}</span>
@@ -277,7 +277,7 @@ export default function Home() {
               ) : null}
             </ul>
             <Link
-              href="/subjects/flk2"
+              href="/books/flk2"
               className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#0d4a42] transition hover:text-[#26d9c0]"
             >
               View all FLK 2 subjects

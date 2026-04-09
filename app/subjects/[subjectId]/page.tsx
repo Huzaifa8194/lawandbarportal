@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
@@ -25,6 +25,7 @@ type PanelTab = "notes" | "highlights" | "bookmarks";
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
@@ -353,7 +354,8 @@ export default function SubjectWorkspacePage() {
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
-  const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
+  const trackRoot = pathname.startsWith("/books/") ? "/books" : "/subjects";
+  const backTrackHref = subject?.track === "FLK 2" ? `${trackRoot}/flk2` : `${trackRoot}/flk1`;
 
   const addNote = () => {
     if (!noteText.trim()) return;

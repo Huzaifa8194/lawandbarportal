@@ -10,8 +10,8 @@ import StudentAssistant from "./student-assistant";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
-  { href: "/subjects/flk1", label: "FLK 1" },
-  { href: "/subjects/flk2", label: "FLK 2" },
+  { href: "/books", label: "Books" },
+  { href: "/audios", label: "Audios" },
   { href: "/mocks", label: "Mock Exams" },
   { href: "/progress", label: "Progress" },
   { href: "/admin", label: "Admin" },
@@ -25,14 +25,22 @@ function NavIcon({ href }: { href: string }) {
       </svg>
     );
   }
-  if (href.includes("flk1")) {
+  if (href === "/books") {
     return (
       <svg className="size-5 shrink-0 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
       </svg>
     );
   }
-  if (href.includes("flk2")) {
+  if (href === "/audios") {
+    return (
+      <svg className="size-5 shrink-0 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19V6l12-2v13" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19a2 2 0 11-4 0 2 2 0 014 0zm12-2a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    );
+  }
+  if (href.includes("flk")) {
     return (
       <svg className="size-5 shrink-0 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
