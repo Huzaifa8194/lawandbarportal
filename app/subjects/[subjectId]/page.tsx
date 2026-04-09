@@ -125,8 +125,12 @@ export default function SubjectWorkspacePage() {
     setSelectedAudioId((prev) =>
       prev && filteredAudios.some((audio) => audio.id === prev) ? prev : filteredAudios[0]?.id ?? null,
     );
-    setShowAudioPicker(false);
   }, [filteredAudios]);
+
+  useEffect(() => {
+    // Only force-close if there are no available audios.
+    if (!filteredAudios.length) setShowAudioPicker(false);
+  }, [filteredAudios.length]);
 
   useEffect(() => {
     setSelectedVideoId((prev) =>
