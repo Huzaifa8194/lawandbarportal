@@ -21,44 +21,7 @@ function fmtTime(seconds: number) {
   return `${m}:${String(rem).padStart(2, "0")}`;
 }
 
-function StudyBadge({
-  active,
-  label,
-  icon,
-  count,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  icon?: React.ReactNode;
-  count?: number;
-  onClick?: () => void;
-}) {
-  const interactive = typeof onClick === "function";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!interactive}
-      title={label}
-      className={`relative flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm font-medium transition sm:px-3 ${
-        active
-          ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-          : interactive
-            ? "border-white/10 bg-white/5 text-white/85 hover:bg-white/10"
-            : "cursor-default border-white/10 bg-white/[0.04] text-white/70"
-      }`}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-      {count != null && count > 0 && (
-        <span className="flex size-4 items-center justify-center rounded-full bg-[#26d9c0]/25 text-[10px] font-bold text-[#6cf4e0] sm:size-5 sm:text-xs">
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
+type PanelTab = "notes" | "highlights" | "bookmarks";
 
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
@@ -94,6 +57,7 @@ export default function SubjectWorkspacePage() {
   const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
   const relatedVideos = videos.filter((item) => item.subjectId === params.subjectId);
   const relatedMocks = mocks.filter((item) => item.subjectIds.includes(params.subjectId));
+
   const [workspaceQuery, setWorkspaceQuery] = useState("");
   const normalizedWorkspaceQuery = workspaceQuery.trim().toLowerCase();
   const filteredAudios = useMemo(() => {
@@ -113,14 +77,11 @@ export default function SubjectWorkspacePage() {
     return relatedMocks.filter((mock) => mock.title.toLowerCase().includes(normalizedWorkspaceQuery));
   }, [relatedMocks, normalizedWorkspaceQuery]);
 
-  const [activePanel, setActivePanel] = useState<"audios" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [bookmarks, setBookmarks] = useState<Array<{ id: string; page: number; label: string }>>([]);
   const [notes, setNotes] = useState<PdfNote[]>([]);
   const [highlights, setHighlights] = useState<PdfHighlight[]>([]);
   const [noteText, setNoteText] = useState("");
-  const [highlightText, setHighlightText] = useState("");
-  const [highlightColor, setHighlightColor] = useState<PdfHighlight["color"]>("yellow");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -130,8 +91,6 @@ export default function SubjectWorkspacePage() {
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const pdfBlobRef = useRef<string | null>(null);
   const lastLoadedBookRef = useRef<string | null>(null);
-  const notesSectionRef = useRef<HTMLDivElement | null>(null);
-  const highlightsSectionRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [audioPosition, setAudioPosition] = useState(0);
@@ -141,6 +100,10 @@ export default function SubjectWorkspacePage() {
   const [audioMessage, setAudioMessage] = useState<string | null>(null);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Side panel state
+  const [showPanel, setShowPanel] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>("notes");
 
   useEffect(() => {
     setSelectedAudioId((prev) =>
@@ -154,6 +117,7 @@ export default function SubjectWorkspacePage() {
     );
   }, [filteredVideos]);
 
+  // ── PDF blob loading ──
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -199,7 +163,6 @@ export default function SubjectWorkspacePage() {
             loaded = true;
             break;
           }
-
           if (attempt < 2) {
             await new Promise((resolve) => setTimeout(resolve, 450 * (attempt + 1)));
           }
@@ -242,6 +205,7 @@ export default function SubjectWorkspacePage() {
     };
   }, []);
 
+  // ── PDF study state persistence ──
   useEffect(() => {
     if (!relatedBook?.id) {
       setPdfReady(false);
@@ -300,6 +264,7 @@ export default function SubjectWorkspacePage() {
     return () => clearTimeout(timer);
   }, [relatedBook?.id, pdfReady, currentPage, bookmarks, notes, highlights]);
 
+  // ── Audio state persistence ──
   useEffect(() => {
     if (!selectedAudioId) {
       setAudioReady(false);
@@ -344,6 +309,7 @@ export default function SubjectWorkspacePage() {
     return () => clearTimeout(timer);
   }, [selectedAudioId, audioReady, audioPosition, audioRate]);
 
+  // ── Derived data ──
   const selectedAudio = useMemo(
     () => filteredAudios.find((audio) => audio.id === selectedAudioId) ?? null,
     [filteredAudios, selectedAudioId],
@@ -354,35 +320,8 @@ export default function SubjectWorkspacePage() {
   );
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
-  const recentHighlights = useMemo(
-    () =>
-      [...highlights]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 8),
-    [highlights],
-  );
-  const recentNotes = useMemo(
-    () =>
-      [...notes]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 8),
-    [notes],
-  );
-  const pageNotesPreview = useMemo(() => pageNotes.slice(0, 4), [pageNotes]);
-  const pageHighlightsPreview = useMemo(() => pageHighlights.slice(0, 4), [pageHighlights]);
-  const bookmarksPreview = useMemo(() => bookmarks.slice(0, 8), [bookmarks]);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
-  const noteCountLabel = pageNotes.length ? `${pageNotes.length} on this page` : "No notes on this page";
-  const highlightCountLabel = pageHighlights.length
-    ? `${pageHighlights.length} on this page`
-    : "No highlights on this page";
-
-  const scrollToSection = (section: "notes" | "highlights") => {
-    const target = section === "notes" ? notesSectionRef.current : highlightsSectionRef.current;
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   const addNote = () => {
     if (!noteText.trim()) return;
@@ -398,630 +337,501 @@ export default function SubjectWorkspacePage() {
     setNoteText("");
   };
 
-  const addHighlight = () => {
-    if (!highlightText.trim()) return;
-    setHighlights((prev) => [
-      {
-        id: uid(),
-        page: currentPage,
-        text: highlightText.trim(),
-        color: highlightColor,
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-    setHighlightText("");
-  };
+  // ── Render ──
+  if (!loading && !subject) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f1716] p-6">
+        <div className="max-w-md rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
+          Subject not found or not published.
+          <Link href="/subjects/flk1" className="mt-3 block text-[#26d9c0] underline">
+            Back to subjects
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#0f1716] text-white">
+    <div className="flex min-h-screen flex-col bg-[#0f1716] text-white">
+      {/* ── Compact header (single row) ── */}
       <header
-        className="sticky top-0 z-40 border-b border-white/10 bg-[#0f1716]/95 backdrop-blur"
-        style={{ paddingTop: "calc(14px + env(safe-area-inset-top, 0px))" }}
+        className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#0f1716]/95 px-3 backdrop-blur sm:px-4"
+        style={{ paddingTop: "calc(10px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
       >
-        <div className="px-4 pb-3 sm:px-6">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href={backTrackHref}
-              className="inline-flex min-h-[40px] shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-white/85 hover:bg-white/10"
-              aria-label="Back"
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="hidden sm:inline text-sm">Back</span>
-            </Link>
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <StudyBadge
-                active={false}
-                label={highlightCountLabel}
-                icon={
-                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                }
-                count={pageHighlights.length}
-                onClick={() => scrollToSection("highlights")}
-              />
-              <StudyBadge
-                active={false}
-                label={noteCountLabel}
-                icon={
-                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                }
-                count={pageNotes.length}
-                onClick={() => scrollToSection("notes")}
-              />
-              <StudyBadge
-                active={activePanel === "audios"}
-                label={`Audios (${filteredAudios.length})`}
-                icon={
-                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0l-4-4m4 4l4-4M9.172 9.172a4 4 0 015.656 0" />
-                  </svg>
-                }
-                count={filteredAudios.length}
-                onClick={() => setActivePanel((prev) => (prev === "audios" ? null : "audios"))}
-              />
-            </div>
-          </div>
-          <div className="mt-1 hidden items-center gap-2 text-xs text-white/55 sm:flex">
-            <Link href={backTrackHref} className="hover:text-[#26d9c0]">
-              {subject?.track || "FLK"}
-            </Link>
-            <span>/</span>
-            <span>Study</span>
-          </div>
-          {pdfMessage ? <p className="mt-2 text-xs text-amber-300">{pdfMessage}</p> : null}
-          {audioMessage ? <p className="mt-1 text-xs text-amber-300">{audioMessage}</p> : null}
+        <Link
+          href={backTrackHref}
+          className="flex size-8 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
+          aria-label="Back"
+        >
+          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-sm font-semibold leading-tight sm:text-base">
+            {subject?.name || "Study Workspace"}
+          </h1>
+          <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
+            {subject?.track || "FLK"} &middot; {relatedBook?.title || "No book"}
+          </p>
+        </div>
+
+        {/* Book switcher (when multiple books) */}
+        {booksForSubject.length > 1 && (
+          <select
+            value={selectedBookId}
+            onChange={(e) => setSelectedBookId(e.target.value)}
+            className="hidden max-w-[180px] truncate rounded-lg border border-white/15 bg-[#0d1514] px-2 py-1 text-xs text-white sm:block"
+          >
+            {booksForSubject.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Audio selector */}
+        {filteredAudios.length > 0 && (
+          <select
+            value={selectedAudioId || ""}
+            onChange={(e) => setSelectedAudioId(e.target.value || null)}
+            className="hidden max-w-[160px] truncate rounded-lg border border-white/15 bg-[#0d1514] px-2 py-1 text-xs text-white sm:block"
+          >
+            {filteredAudios.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.title}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Panel counts + toggle */}
+        <div className="flex shrink-0 items-center gap-1">
+          {pageHighlights.length > 0 && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
+              {pageHighlights.length}
+            </span>
+          )}
+          {pageNotes.length > 0 && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
+              {pageNotes.length}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowPanel((v) => !v)}
+            title="Notes &amp; highlights panel"
+            className={`flex size-8 items-center justify-center rounded-md border transition ${
+              showPanel
+                ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
+                : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+            }`}
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      {activePanel ? (
-        <section
-          className="sticky z-30 border-b border-white/10 bg-[#101b1a]/95 px-4 py-3 backdrop-blur sm:px-6"
-          style={{ top: "calc(68px + env(safe-area-inset-top, 0px))" }}
-        >
-          {activePanel === "audios" ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {!filteredAudios.length ? (
-                <p className="text-sm text-white/70">No audio lessons published for this subject yet.</p>
-              ) : (
-                filteredAudios.map((audio) => (
-                  <button
-                    key={audio.id}
-                    type="button"
-                    onClick={() => setSelectedAudioId(audio.id)}
-                    className={`rounded-lg border px-3 py-2 text-sm ${
-                      selectedAudioId === audio.id
-                        ? "border-[#26d9c0]/60 bg-[#26d9c0]/15 text-[#6cf4e0]"
-                        : "border-white/10 bg-white/5 text-white/85 hover:bg-white/10"
-                    }`}
-                  >
-                    {audio.title}
-                  </button>
-                ))
-              )}
-            </div>
-          ) : null}
+      {pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage}</p> : null}
+      {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
-        </section>
-      ) : null}
-
-      <main className="px-3 pb-[calc(170px+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 sm:pb-36">
-        <section className="mx-auto mb-3 max-w-[1400px]">
-          <h1 className="truncate font-[family-name:var(--font-playfair)] text-xl font-semibold sm:text-3xl">
-            {subject?.name || "Subject Study Workspace"}
-          </h1>
-          <p className="mt-1 text-xs text-white/55 sm:hidden">{subject?.track || "FLK"} / Study</p>
-        </section>
-        {!loading && !subject ? (
-          <section className="mx-auto max-w-3xl rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
-            Subject not found or not published.
-          </section>
-        ) : null}
-
-        {subject ? (
-          <section className="mx-auto max-w-[1400px]">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-xs text-white/60">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-                <p className="min-w-0 truncate">
-                  {relatedBook?.title || "No PDF book is currently available for this subject."}
-                </p>
-                {booksForSubject.length > 1 ? (
-                  <label className="flex shrink-0 items-center gap-2 text-white/70">
-                    <span className="text-white/45">PDF</span>
-                    <select
-                      value={selectedBookId}
-                      onChange={(event) => setSelectedBookId(event.target.value)}
-                      className="max-w-[220px] truncate rounded-lg border border-white/20 bg-[#0d1514] px-2 py-1.5 text-xs text-white sm:max-w-xs"
-                    >
-                      {booksForSubject.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-              </div>
-                <label className="min-w-0 flex-shrink sm:min-w-[220px] sm:shrink-0 text-white/75">
-                  <span className="mb-1 block text-[11px] text-white/55">Search workspace</span>
-                  <input
-                    value={workspaceQuery}
-                    onChange={(event) => setWorkspaceQuery(event.target.value)}
-                    placeholder="Search videos, audios, mocks..."
-                    className="w-full rounded-lg border border-white/20 bg-[#0d1514] px-2 py-1.5 text-xs text-white placeholder:text-white/35"
-                  />
-                </label>
-              {relatedBook ? (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    aria-label="Previous page"
-                    className="min-h-[32px] min-w-[32px] rounded border border-white/15 px-1.5 py-1 text-white/80 active:bg-white/10 sm:px-2"
-                  >
-                    <svg className="mx-auto size-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span className="hidden sm:inline text-xs">Prev</span>
-                  </button>
-                  <span className="text-xs tabular-nums">{currentPage}{pdfNumPages ? `/${pdfNumPages}` : ""}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentPage((prev) =>
-                        pdfNumPages != null
-                          ? Math.min(prev + 1, pdfNumPages)
-                          : prev + 1,
-                      )
-                    }
-                    aria-label="Next page"
-                    className="min-h-[32px] min-w-[32px] rounded border border-white/15 px-1.5 py-1 text-white/80 active:bg-white/10 sm:px-2"
-                  >
-                    <svg className="mx-auto size-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                    <span className="hidden sm:inline text-xs">Next</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111a19] to-[#0b1110] p-3 sm:p-8">
-              {relatedBook && pdfUrl ? (
-                <div className="mx-auto max-w-[900px]">
-                  <div className="flex h-[78vh] min-h-[420px] w-full flex-col overflow-hidden sm:h-[85vh] sm:min-h-[680px]">
-                      <StudyPdfPane
-                        bookId={relatedBookId}
-                        pdfBlobUrl={pdfUrl}
-                        title={relatedBook?.title || "Study Book PDF"}
-                        currentPage={currentPage}
-                        totalPages={pdfNumPages}
-                        onPageChange={setCurrentPage}
-                        onNumPages={setPdfNumPages}
-                        onHighlight={(text, color, rects) => {
-                          setHighlights((prev) => [
-                            {
-                              id: uid(),
-                              page: currentPage,
-                              text,
-                              color,
-                              rects,
-                              createdAt: new Date().toISOString(),
-                            },
-                            ...prev,
-                          ]);
-                        }}
-                        onNote={(selectedText, noteContent) => {
-                          setNotes((prev) => [
-                            {
-                              id: uid(),
-                              page: currentPage,
-                              text: noteContent,
-                              selectedText,
-                              createdAt: new Date().toISOString(),
-                            },
-                            ...prev,
-                          ]);
-                        }}
-                        pageHighlights={pageHighlights}
-                      />
-                  </div>
-                  <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
-                    Page {currentPage}
-                  </div>
-                </div>
-              ) : relatedBook ? (
-                <div className="mx-auto max-w-2xl rounded-xl border border-white/20 bg-white/5 p-8 text-center text-sm text-white/75">
-                  <p>{pdfLoading ? "Loading PDF..." : pdfLoadError || "Preparing your PDF..."}</p>
-                  <button
-                    type="button"
-                    onClick={() => setPdfReloadKey((prev) => prev + 1)}
-                    className="mt-3 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/15"
-                  >
-                    Retry PDF load
-                  </button>
-                </div>
-              ) : (
-                <div className="mx-auto max-w-2xl rounded-xl border border-dashed border-white/20 bg-white/5 p-8 text-center text-sm text-white/75">
-                  PDF is not available for this subject yet. Ask admin to upload and publish the book.
-                </div>
-              )}
-            </div>
-
-            <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-3 sm:p-5">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="font-[family-name:var(--font-playfair)] text-base font-semibold text-white sm:text-xl">
-                    Quick Capture
-                  </h2>
-                  <p className="text-[11px] text-white/50 sm:text-xs sm:text-white/60">
-                    Save notes &amp; highlights in one tap.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
-                  Page {currentPage}
-                </span>
-              </div>
-
-              {/* Quick actions row — bookmark + color picker always visible */}
-              <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* ── Main area: PDF + side panel ── */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* PDF column */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {subject && relatedBook && pdfUrl ? (
+            <StudyPdfPane
+              bookId={relatedBookId}
+              pdfBlobUrl={pdfUrl}
+              title={relatedBook?.title || "Study Book PDF"}
+              currentPage={currentPage}
+              totalPages={pdfNumPages}
+              onPageChange={setCurrentPage}
+              onNumPages={setPdfNumPages}
+              onHighlight={(text, color, rects) => {
+                setHighlights((prev) => [
+                  {
+                    id: uid(),
+                    page: currentPage,
+                    text,
+                    color,
+                    rects,
+                    createdAt: new Date().toISOString(),
+                  },
+                  ...prev,
+                ]);
+              }}
+              onNote={(selectedText, noteContent) => {
+                setNotes((prev) => [
+                  {
+                    id: uid(),
+                    page: currentPage,
+                    text: noteContent,
+                    selectedText,
+                    createdAt: new Date().toISOString(),
+                  },
+                  ...prev,
+                ]);
+              }}
+              pageHighlights={pageHighlights}
+            />
+          ) : subject && relatedBook ? (
+            <div className="flex flex-1 items-center justify-center p-8">
+              <div className="max-w-sm rounded-xl border border-white/15 bg-white/5 p-6 text-center text-sm text-white/70">
+                <p>{pdfLoading ? "Loading PDF..." : pdfLoadError || "Preparing your PDF..."}</p>
                 <button
                   type="button"
-                  onClick={() =>
-                    setBookmarks((prev) => [{ id: uid(), page: currentPage, label: `Page ${currentPage}` }, ...prev])
-                  }
-                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 active:bg-white/10"
+                  onClick={() => setPdfReloadKey((prev) => prev + 1)}
+                  className="mt-3 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/15"
                 >
-                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                  <span className="hidden sm:inline">Bookmark page</span>
+                  Retry
                 </button>
+              </div>
+            </div>
+          ) : subject ? (
+            <div className="flex flex-1 items-center justify-center p-8 text-sm text-white/50">
+              No PDF book available for this subject yet.
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-8 text-sm text-white/40">
+              Loading...
+            </div>
+          )}
+        </div>
+
+        {/* ── Side panel (desktop: beside PDF, mobile: bottom drawer overlay) ── */}
+        {showPanel && (
+          <>
+            {/* Mobile backdrop */}
+            <button
+              type="button"
+              onClick={() => setShowPanel(false)}
+              className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+              aria-label="Close panel"
+            />
+            <div
+              className={
+                "fixed bottom-0 left-0 right-0 z-50 flex max-h-[70vh] flex-col rounded-t-2xl border-t border-white/10 bg-[#0d1514] " +
+                "lg:static lg:z-auto lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:rounded-l-none lg:border-l lg:border-t-0"
+              }
+            >
+              {/* Panel header */}
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-2">
                 <div className="flex items-center gap-1">
-                  {(["yellow", "green", "blue", "pink"] as const).map((c) => (
+                  {(["notes", "highlights", "bookmarks"] as const).map((tab) => (
                     <button
-                      key={c}
+                      key={tab}
                       type="button"
-                      onClick={() => setHighlightColor(c)}
-                      aria-label={`${c} highlight`}
-                      className={`size-7 rounded-full border-2 transition sm:size-8 ${
-                        highlightColor === c ? "border-white scale-110" : "border-transparent opacity-70 hover:opacity-100"
+                      onClick={() => setPanelTab(tab)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition ${
+                        panelTab === tab
+                          ? "bg-white/10 text-white"
+                          : "text-white/50 hover:text-white/75"
                       }`}
-                      style={{
-                        backgroundColor:
-                          c === "yellow" ? "#fef08a" : c === "green" ? "#bbf7d0" : c === "blue" ? "#bfdbfe" : "#fbcfe8",
-                      }}
-                    />
+                    >
+                      {tab}
+                      {tab === "notes" && pageNotes.length > 0 && (
+                        <span className="ml-1 text-[10px] text-[#6cf4e0]">{pageNotes.length}</span>
+                      )}
+                      {tab === "highlights" && pageHighlights.length > 0 && (
+                        <span className="ml-1 text-[10px] text-[#6cf4e0]">{pageHighlights.length}</span>
+                      )}
+                      {tab === "bookmarks" && bookmarks.length > 0 && (
+                        <span className="ml-1 text-[10px] text-[#6cf4e0]">{bookmarks.length}</span>
+                      )}
+                    </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPanel(false)}
+                  className="flex size-6 items-center justify-center rounded-md text-white/40 hover:bg-white/10 hover:text-white/70"
+                >
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-                {/* Note input */}
-                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <label className="text-xs font-medium text-white/65" htmlFor="note-input">
-                    Note
-                  </label>
-                  <textarea
-                    id="note-input"
-                    value={noteText}
-                    onChange={(event) => setNoteText(event.target.value)}
-                    placeholder="Type a quick note from this page..."
-                    rows={3}
-                    className="mt-1 min-h-[72px] w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2.5 text-sm text-white placeholder:text-white/35 sm:min-h-24"
-                  />
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={addNote}
-                      className="min-h-[40px] flex-1 rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea] active:bg-[#26d9c0]/25"
-                    >
-                      Save note
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNoteText("")}
-                      className="min-h-[40px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  {/* Highlight input */}
-                  <div ref={highlightsSectionRef} className="mt-4 scroll-mt-28 border-t border-white/10 pt-3">
-                    <label className="text-xs font-medium text-white/65" htmlFor="highlight-input">
-                      Highlight
-                    </label>
-                    <input
-                      id="highlight-input"
-                      value={highlightText}
-                      onChange={(event) => setHighlightText(event.target.value)}
-                      placeholder="Paste important passage..."
-                      className="mt-1 min-h-[40px] w-full rounded-lg border border-white/10 bg-[#0f1716] px-3 py-2.5 text-sm text-white placeholder:text-white/35"
-                    />
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={addHighlight}
-                        className="min-h-[40px] flex-1 rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-2 text-sm font-medium text-[#78ffea] active:bg-[#26d9c0]/25"
-                      >
-                        Save highlight
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHighlightText("")}
-                        className="min-h-[40px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notes + highlights on this page */}
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
-                  <div ref={notesSectionRef} className="scroll-mt-28 rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-white/70">Notes on this page</p>
-                      {pageNotes.length > 0 && (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60">
-                          {pageNotes.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                      {pageNotesPreview.map((note) => (
-                        <div key={note.id} className="group rounded-lg bg-white/5 px-3 py-2 text-sm">
-                          {note.selectedText && (
-                            <p className="mb-1 line-clamp-2 border-l-2 border-[#26d9c0]/40 pl-2 text-[11px] italic leading-relaxed text-white/45">
-                              &ldquo;{note.selectedText}&rdquo;
-                            </p>
-                          )}
-                          <p className="leading-relaxed">{note.text}</p>
-                          <button
-                            type="button"
-                            onClick={() => setNotes((prev) => prev.filter((item) => item.id !== note.id))}
-                            className="mt-1.5 min-h-[28px] rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-300 active:bg-red-500/20"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                      {!pageNotes.length ? <p className="text-xs text-white/45">No notes yet.</p> : null}
-                      {pageNotes.length > pageNotesPreview.length ? (
-                        <p className="text-xs text-white/45">Showing latest {pageNotesPreview.length} notes.</p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-white/70">Highlights on this page</p>
-                      {pageHighlights.length > 0 && (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60">
-                          {pageHighlights.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                      {pageHighlightsPreview.map((item) => (
-                        <div
-                          key={item.id}
-                          className="rounded-lg px-3 py-2 text-sm"
-                          style={{
-                            backgroundColor:
-                              item.color === "yellow" ? "rgba(254,240,138,0.15)"
-                              : item.color === "green" ? "rgba(187,247,208,0.15)"
-                              : item.color === "blue" ? "rgba(191,219,254,0.15)"
-                              : "rgba(251,207,232,0.15)",
-                            borderLeft: `3px solid ${
-                              item.color === "yellow" ? "#fef08a"
-                              : item.color === "green" ? "#86efac"
-                              : item.color === "blue" ? "#93c5fd"
-                              : "#f9a8d4"
-                            }`,
-                          }}
+              {/* Panel body */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {/* ─ Notes tab ─ */}
+                {panelTab === "notes" && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium text-white/50">
+                      Page {currentPage} &middot; {pageNotes.length} note{pageNotes.length !== 1 ? "s" : ""}
+                    </p>
+                    {pageNotes.map((note) => (
+                      <div key={note.id} className="rounded-lg bg-white/5 px-3 py-2 text-sm">
+                        {note.selectedText && (
+                          <p className="mb-1 line-clamp-2 border-l-2 border-[#26d9c0]/40 pl-2 text-[11px] italic leading-relaxed text-white/40">
+                            &ldquo;{note.selectedText}&rdquo;
+                          </p>
+                        )}
+                        <p className="leading-relaxed text-white/85">{note.text}</p>
+                        <button
+                          type="button"
+                          onClick={() => setNotes((prev) => prev.filter((n) => n.id !== note.id))}
+                          className="mt-1 text-[10px] text-red-400/70 hover:text-red-300"
                         >
-                          <p className="leading-relaxed">{item.text}</p>
-                          <button
-                            type="button"
-                            onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
-                            className="mt-1.5 min-h-[28px] rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-300 active:bg-red-500/20"
-                          >
-                            Remove
-                          </button>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {!pageNotes.length && <p className="py-4 text-center text-xs text-white/30">No notes on this page.</p>}
+
+                    {/* All notes (other pages) */}
+                    {notes.filter((n) => n.page !== currentPage).length > 0 && (
+                      <>
+                        <div className="mt-3 border-t border-white/10 pt-2">
+                          <p className="text-[11px] font-medium text-white/40">Other pages</p>
                         </div>
-                      ))}
-                      {!pageHighlights.length ? <p className="text-xs text-white/45">No highlights yet.</p> : null}
-                      {pageHighlights.length > pageHighlightsPreview.length ? (
-                        <p className="text-xs text-white/45">
-                          Showing latest {pageHighlightsPreview.length} highlights.
-                        </p>
-                      ) : null}
+                        {notes
+                          .filter((n) => n.page !== currentPage)
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .slice(0, 20)
+                          .map((note) => (
+                            <button
+                              key={note.id}
+                              type="button"
+                              onClick={() => setCurrentPage(note.page)}
+                              className="w-full rounded-lg bg-white/[0.03] px-3 py-2 text-left text-xs text-white/60 hover:bg-white/5"
+                            >
+                              <span className="text-[10px] font-medium text-[#26d9c0]/50">Page {note.page}</span>
+                              <p className="line-clamp-2 leading-relaxed">{note.text}</p>
+                            </button>
+                          ))}
+                      </>
+                    )}
+
+                    {/* Quick note input */}
+                    <div className="mt-3 border-t border-white/10 pt-3">
+                      <textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Quick note for this page..."
+                        rows={2}
+                        className="w-full rounded-lg border border-white/10 bg-[#0a1110] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-[#26d9c0]/40 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={addNote}
+                        disabled={!noteText.trim()}
+                        className="mt-1.5 w-full rounded-lg border border-[#26d9c0]/50 bg-[#26d9c0]/10 py-1.5 text-xs font-medium text-[#78ffea] transition enabled:active:bg-[#26d9c0]/20 disabled:opacity-40"
+                      >
+                        Save note
+                      </button>
                     </div>
                   </div>
-                </div>
-              </div>
+                )}
 
-              <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-3">
-                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    <p className="text-xs font-medium text-white/70">Recent notes</p>
-                  </div>
-                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
-                    {recentNotes.map((note) => (
-                      <button
-                        key={note.id}
-                        type="button"
-                        onClick={() => setCurrentPage(note.page)}
-                        className="w-full min-h-[36px] rounded-lg bg-white/5 px-2.5 py-2 text-left text-xs text-white/80 active:bg-white/10"
-                      >
-                        <span className="block text-[10px] font-medium text-[#26d9c0]/60">Page {note.page}</span>
-                        <span className="line-clamp-2 leading-relaxed">{note.text}</span>
-                      </button>
-                    ))}
-                    {!recentNotes.length ? <p className="text-xs text-white/45">No saved notes yet.</p> : null}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    <p className="text-xs font-medium text-white/70">Recent highlights</p>
-                  </div>
-                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
-                    {recentHighlights.map((item) => (
-                      <button
+                {/* ─ Highlights tab ─ */}
+                {panelTab === "highlights" && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium text-white/50">
+                      Page {currentPage} &middot; {pageHighlights.length} highlight{pageHighlights.length !== 1 ? "s" : ""}
+                    </p>
+                    {pageHighlights.map((item) => (
+                      <div
                         key={item.id}
-                        type="button"
-                        onClick={() => setCurrentPage(item.page)}
-                        className="w-full min-h-[36px] rounded-lg px-2.5 py-2 text-left text-xs text-white/80 active:bg-white/10"
+                        className="rounded-lg px-3 py-2 text-sm"
                         style={{
                           backgroundColor:
-                            item.color === "yellow" ? "rgba(254,240,138,0.08)"
-                            : item.color === "green" ? "rgba(187,247,208,0.08)"
-                            : item.color === "blue" ? "rgba(191,219,254,0.08)"
-                            : "rgba(251,207,232,0.08)",
+                            item.color === "yellow" ? "rgba(254,240,138,0.12)"
+                            : item.color === "green" ? "rgba(187,247,208,0.12)"
+                            : item.color === "blue" ? "rgba(191,219,254,0.12)"
+                            : "rgba(251,207,232,0.12)",
+                          borderLeft: `3px solid ${
+                            item.color === "yellow" ? "#fef08a"
+                            : item.color === "green" ? "#86efac"
+                            : item.color === "blue" ? "#93c5fd"
+                            : "#f9a8d4"
+                          }`,
                         }}
                       >
-                        <span className="block text-[10px] font-medium text-[#26d9c0]/60">Page {item.page}</span>
-                        <span className="line-clamp-2 leading-relaxed">{item.text}</span>
-                      </button>
-                    ))}
-                    {!recentHighlights.length ? <p className="text-xs text-white/45">No saved highlights yet.</p> : null}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-[#0a1110] p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="size-3.5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                    <p className="text-xs font-medium text-white/70">Bookmarks</p>
-                  </div>
-                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-                    {bookmarksPreview.map((mark) => (
-                      <button
-                        type="button"
-                        key={mark.id}
-                        onClick={() => setCurrentPage(mark.page)}
-                        className="block w-full min-h-[32px] rounded-lg bg-white/5 px-2.5 py-1.5 text-left text-xs text-white/80 active:bg-white/10"
-                      >
-                        {mark.label}
-                      </button>
-                    ))}
-                    {!bookmarks.length ? <p className="text-xs text-white/45">No bookmarks yet.</p> : null}
-                    {bookmarks.length > bookmarksPreview.length ? (
-                      <p className="text-xs text-white/45">Showing latest {bookmarksPreview.length} bookmarks.</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {filteredVideos.length > 0 ? (
-              <section className="mt-5 rounded-2xl border border-white/10 bg-[#0d1514] p-4 sm:p-5">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-white sm:text-xl">
-                      Video Lessons
-                    </h2>
-                    <p className="text-xs text-white/60">
-                      Watch topic walkthroughs while you study this subject.
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
-                    {filteredVideos.length} lesson{filteredVideos.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-
-                {selectedVideo ? (
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
-                      <video
-                        key={selectedVideo.id}
-                        src={selectedVideo.fileUrl}
-                        controls
-                        preload="metadata"
-                        className="aspect-video w-full bg-black"
-                      />
-                      <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2.5">
-                        <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
-                        {selectedVideo.description ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-white/65">{selectedVideo.description}</p>
-                        ) : null}
+                        <p className="leading-relaxed text-white/80">{item.text}</p>
+                        <button
+                          type="button"
+                          onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
+                          className="mt-1 text-[10px] text-red-400/70 hover:text-red-300"
+                        >
+                          Remove
+                        </button>
                       </div>
-                    </div>
+                    ))}
+                    {!pageHighlights.length && <p className="py-4 text-center text-xs text-white/30">No highlights on this page.</p>}
 
-                    <div className="max-h-[420px] space-y-2 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-2">
-                      {filteredVideos.map((video, index) => {
-                        const isActive = video.id === selectedVideoId;
-                        return (
-                          <button
-                            key={video.id}
-                            type="button"
-                            onClick={() => setSelectedVideoId(video.id)}
-                            className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                              isActive
-                                ? "border-[#26d9c0]/60 bg-[#26d9c0]/15"
-                                : "border-white/10 bg-white/5 hover:bg-white/10"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="line-clamp-2 text-sm font-medium text-white">
-                                {index + 1}. {video.title}
-                              </p>
-                              {video.durationSeconds ? (
-                                <span className="shrink-0 rounded bg-black/30 px-1.5 py-0.5 text-[11px] text-white/75">
-                                  {fmtTime(video.durationSeconds)}
-                                </span>
-                              ) : null}
-                            </div>
-                            {video.description ? (
-                              <p className="mt-1 line-clamp-2 text-xs text-white/60">{video.description}</p>
-                            ) : null}
-                          </button>
-                        );
-                      })}
+                    {/* All highlights (other pages) */}
+                    {highlights.filter((h) => h.page !== currentPage).length > 0 && (
+                      <>
+                        <div className="mt-3 border-t border-white/10 pt-2">
+                          <p className="text-[11px] font-medium text-white/40">Other pages</p>
+                        </div>
+                        {highlights
+                          .filter((h) => h.page !== currentPage)
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .slice(0, 20)
+                          .map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setCurrentPage(item.page)}
+                              className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/60 hover:bg-white/5"
+                              style={{
+                                backgroundColor:
+                                  item.color === "yellow" ? "rgba(254,240,138,0.05)"
+                                  : item.color === "green" ? "rgba(187,247,208,0.05)"
+                                  : item.color === "blue" ? "rgba(191,219,254,0.05)"
+                                  : "rgba(251,207,232,0.05)",
+                              }}
+                            >
+                              <span className="text-[10px] font-medium text-[#26d9c0]/50">Page {item.page}</span>
+                              <p className="line-clamp-2 leading-relaxed">{item.text}</p>
+                            </button>
+                          ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ─ Bookmarks tab ─ */}
+                {panelTab === "bookmarks" && (
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBookmarks((prev) => [
+                          { id: uid(), page: currentPage, label: `Page ${currentPage}` },
+                          ...prev,
+                        ])
+                      }
+                      className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:bg-white/5"
+                    >
+                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      Bookmark page {currentPage}
+                    </button>
+                    {bookmarks.map((mark) => (
+                      <div key={mark.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(mark.page)}
+                          className="min-w-0 flex-1 text-left text-white/80 hover:text-white"
+                        >
+                          {mark.label}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBookmarks((prev) => prev.filter((b) => b.id !== mark.id))}
+                          className="shrink-0 text-[10px] text-red-400/60 hover:text-red-300"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                    {!bookmarks.length && <p className="py-4 text-center text-xs text-white/30">No bookmarks yet.</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Videos / Mocks (below reader) ── */}
+      {subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
+        <div className="shrink-0 border-t border-white/10 px-3 pb-4 pt-3 sm:px-6">
+          <div className="mx-auto max-w-[1200px]">
+            {/* Search for resources */}
+            {(relatedVideos.length > 0 || relatedMocks.length > 0) && (
+              <div className="mb-3">
+                <input
+                  value={workspaceQuery}
+                  onChange={(e) => setWorkspaceQuery(e.target.value)}
+                  placeholder="Search videos, audios, mocks..."
+                  className="w-full max-w-xs rounded-lg border border-white/15 bg-[#0d1514] px-2.5 py-1.5 text-xs text-white placeholder:text-white/30"
+                />
+              </div>
+            )}
+
+            {filteredVideos.length > 0 && selectedVideo ? (
+              <section className="mb-4 rounded-xl border border-white/10 bg-[#0d1514] p-3 sm:p-4">
+                <h2 className="mb-2 text-sm font-semibold text-white">Video Lessons</h2>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                    <video
+                      key={selectedVideo.id}
+                      src={selectedVideo.fileUrl}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full bg-black"
+                    />
+                    <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2">
+                      <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
+                      {selectedVideo.description ? (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-white/55">{selectedVideo.description}</p>
+                      ) : null}
                     </div>
                   </div>
-                ) : null}
+                  <div className="max-h-[300px] space-y-1.5 overflow-auto rounded-lg border border-white/10 bg-[#0a1110] p-2">
+                    {filteredVideos.map((video, index) => {
+                      const isActive = video.id === selectedVideoId;
+                      return (
+                        <button
+                          key={video.id}
+                          type="button"
+                          onClick={() => setSelectedVideoId(video.id)}
+                          className={`w-full rounded-md border px-2.5 py-1.5 text-left text-xs transition ${
+                            isActive
+                              ? "border-[#26d9c0]/50 bg-[#26d9c0]/10"
+                              : "border-white/10 bg-white/[0.03] hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="line-clamp-2 font-medium text-white">
+                              {index + 1}. {video.title}
+                            </p>
+                            {video.durationSeconds ? (
+                              <span className="shrink-0 text-[10px] text-white/50">{fmtTime(video.durationSeconds)}</span>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </section>
             ) : null}
 
-            {filteredMocks.length ? (
-              <div className="mt-4 flex flex-wrap gap-2">
+            {filteredMocks.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
                 {filteredMocks.slice(0, 3).map((mock) => (
                   <Link
                     key={mock.id}
                     href={`/mocks/${mock.id}?mode=practice`}
-                    className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10"
+                    className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
                   >
-                    Practice mock: {mock.title}
+                    Practice: {mock.title}
                   </Link>
                 ))}
               </div>
             ) : null}
-          </section>
-        ) : null}
-      </main>
+          </div>
+        </div>
+      ) : null}
 
+      {/* ── Audio footer (unchanged) ── */}
       <footer
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
-        style={{ paddingBottom: "calc(26px + env(safe-area-inset-bottom, 0px))" }}
+        className="sticky bottom-0 z-30 shrink-0 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
+        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
       >
         {selectedAudio ? (
-          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
+          <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{selectedAudio.title}</p>
               <p className="text-xs text-white/55">
@@ -1061,8 +871,8 @@ export default function SubjectWorkspacePage() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-[1400px] rounded-lg border border-dashed border-white/20 bg-white/5 px-4 py-2 text-sm text-white/70">
-            No published audio lesson for this subject yet.
+          <div className="mx-auto max-w-[1200px] rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-3 py-1.5 text-center text-xs text-white/50">
+            No audio lesson for this subject yet.
           </div>
         )}
       </footer>
