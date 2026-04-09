@@ -609,22 +609,70 @@ export default function StudyPdfPane({
         ref={containerRef}
         className="pdf-zoom-container relative min-h-0 flex-1 overflow-auto bg-[#0b1110]"
       >
-        {/* Tap zones for page navigation (mobile/touch) */}
+        {/* Desktop: full-height professional book-edge navigators */}
+        {onPageChange && (
+          <>
+            <button
+              type="button"
+              onClick={() => canGoPrev && goPage(currentPage - 1)}
+              disabled={!canGoPrev}
+              aria-label="Previous page"
+              className={`absolute bottom-0 left-0 top-0 z-10 hidden w-20 items-center justify-start pl-2 transition md:flex ${
+                canGoPrev
+                  ? "cursor-pointer bg-gradient-to-r from-black/35 via-black/10 to-transparent text-white/70 hover:from-black/45 hover:text-white"
+                  : "pointer-events-none text-transparent"
+              }`}
+            >
+              <span className="rounded-full border border-white/20 bg-black/30 p-2 backdrop-blur">
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => canGoNext && goPage(currentPage + 1)}
+              disabled={!canGoNext}
+              aria-label="Next page"
+              className={`absolute bottom-0 right-0 top-0 z-10 hidden w-20 items-center justify-end pr-2 transition md:flex ${
+                canGoNext
+                  ? "cursor-pointer bg-gradient-to-l from-black/35 via-black/10 to-transparent text-white/70 hover:from-black/45 hover:text-white"
+                  : "pointer-events-none text-transparent"
+              }`}
+            >
+              <span className="rounded-full border border-white/20 bg-black/30 p-2 backdrop-blur">
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </span>
+            </button>
+          </>
+        )}
+
+        {/* Mobile: visible carousel-style navigation buttons */}
         {onPageChange && canGoPrev && (
           <button
             type="button"
             onClick={() => goPage(currentPage - 1)}
             aria-label="Previous page"
-            className="absolute bottom-0 left-0 top-0 z-10 w-10 cursor-pointer opacity-0 md:w-14"
-          />
+            className="absolute left-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 p-2 text-white/85 shadow-lg backdrop-blur md:hidden"
+          >
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
         )}
         {onPageChange && canGoNext && (
           <button
             type="button"
             onClick={() => goPage(currentPage + 1)}
             aria-label="Next page"
-            className="absolute bottom-0 right-0 top-0 z-10 w-10 cursor-pointer opacity-0 md:w-14"
-          />
+            className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 p-2 text-white/85 shadow-lg backdrop-blur md:hidden"
+          >
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         )}
 
         <Document
