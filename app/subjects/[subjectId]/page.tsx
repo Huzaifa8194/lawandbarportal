@@ -101,6 +101,7 @@ export default function SubjectWorkspacePage() {
   const [audioMessage, setAudioMessage] = useState<string | null>(null);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioPickerRef = useRef<HTMLDivElement | null>(null);
 
   // Side panel state
   const [showPanel, setShowPanel] = useState(false);
@@ -136,12 +137,12 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     if (!showAudioPicker) return;
     const onDocClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-audio-picker]")) return;
+      const target = event.target as Node | null;
+      if (audioPickerRef.current && target && audioPickerRef.current.contains(target)) return;
       setShowAudioPicker(false);
     };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
   }, [showAudioPicker]);
 
   // ── PDF blob loading ──
@@ -880,7 +881,7 @@ export default function SubjectWorkspacePage() {
       >
         {selectedAudio ? (
           <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-3">
-            <div className="relative min-w-0 flex-1" data-audio-picker>
+            <div ref={audioPickerRef} className="relative min-w-0 flex-1" data-audio-picker>
               <button
                 type="button"
                 onClick={() => setShowAudioPicker((v) => !v)}

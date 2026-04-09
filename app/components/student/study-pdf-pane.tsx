@@ -619,11 +619,11 @@ export default function StudyPdfPane({
               aria-label="Previous page"
               className={`absolute bottom-0 left-0 top-0 z-10 hidden w-20 items-center justify-start pl-2 transition md:flex ${
                 canGoPrev
-                  ? "cursor-pointer bg-gradient-to-r from-black/35 via-black/10 to-transparent text-white/70 hover:from-black/45 hover:text-white"
+                  ? "cursor-pointer bg-gradient-to-r from-white/20 via-white/8 to-transparent text-white/90 hover:from-white/30 hover:text-white"
                   : "pointer-events-none text-transparent"
               }`}
             >
-              <span className="rounded-full border border-white/20 bg-black/30 p-2 backdrop-blur">
+              <span className="rounded-full border border-white/35 bg-white/20 p-2 backdrop-blur">
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
@@ -636,11 +636,11 @@ export default function StudyPdfPane({
               aria-label="Next page"
               className={`absolute bottom-0 right-0 top-0 z-10 hidden w-20 items-center justify-end pr-2 transition md:flex ${
                 canGoNext
-                  ? "cursor-pointer bg-gradient-to-l from-black/35 via-black/10 to-transparent text-white/70 hover:from-black/45 hover:text-white"
+                  ? "cursor-pointer bg-gradient-to-l from-white/20 via-white/8 to-transparent text-white/90 hover:from-white/30 hover:text-white"
                   : "pointer-events-none text-transparent"
               }`}
             >
-              <span className="rounded-full border border-white/20 bg-black/30 p-2 backdrop-blur">
+              <span className="rounded-full border border-white/35 bg-white/20 p-2 backdrop-blur">
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
@@ -655,7 +655,7 @@ export default function StudyPdfPane({
             type="button"
             onClick={() => goPage(currentPage - 1)}
             aria-label="Previous page"
-            className="absolute left-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 p-2 text-white/85 shadow-lg backdrop-blur md:hidden"
+            className="absolute left-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-white/25 p-2 text-white shadow-lg backdrop-blur md:hidden"
           >
             <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -667,7 +667,7 @@ export default function StudyPdfPane({
             type="button"
             onClick={() => goPage(currentPage + 1)}
             aria-label="Next page"
-            className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 p-2 text-white/85 shadow-lg backdrop-blur md:hidden"
+            className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-white/25 p-2 text-white shadow-lg backdrop-blur md:hidden"
           >
             <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
