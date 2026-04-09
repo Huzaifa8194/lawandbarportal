@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import PortalShell from "../../components/portal-shell";
 import SubjectsList from "../../components/subjects-list";
@@ -29,6 +30,9 @@ export default function BooksFlk2Page() {
           </p>
         </div>
       </header>
+      <Link href="/books" className="mb-4 inline-flex text-sm font-medium text-[#0d4a42] hover:text-[#26d9c0]">
+        ← Back to books
+      </Link>
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="text-sm font-medium text-slate-700" htmlFor="books-flk2-subject-search">
           Search FLK 2 subjects
