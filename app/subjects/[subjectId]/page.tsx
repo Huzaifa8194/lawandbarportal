@@ -93,6 +93,7 @@ export default function SubjectWorkspacePage() {
   const lastLoadedBookRef = useRef<string | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
+  const [showAudioPicker, setShowAudioPicker] = useState(false);
   const [audioPosition, setAudioPosition] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioRate, setAudioRate] = useState(1);
@@ -103,12 +104,27 @@ export default function SubjectWorkspacePage() {
 
   // Side panel state
   const [showPanel, setShowPanel] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("notes");
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const apply = () => {
+      const desktop = media.matches;
+      setIsDesktop(desktop);
+      // Keep notes panel open by default on desktop.
+      if (desktop) setShowPanel(true);
+    };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
 
   useEffect(() => {
     setSelectedAudioId((prev) =>
       prev && filteredAudios.some((audio) => audio.id === prev) ? prev : filteredAudios[0]?.id ?? null,
     );
+    setShowAudioPicker(false);
   }, [filteredAudios]);
 
   useEffect(() => {
@@ -116,6 +132,17 @@ export default function SubjectWorkspacePage() {
       prev && filteredVideos.some((video) => video.id === prev) ? prev : filteredVideos[0]?.id ?? null,
     );
   }, [filteredVideos]);
+
+  useEffect(() => {
+    if (!showAudioPicker) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-audio-picker]")) return;
+      setShowAudioPicker(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showAudioPicker]);
 
   // ── PDF blob loading ──
   useEffect(() => {
@@ -407,7 +434,7 @@ export default function SubjectWorkspacePage() {
           </select>
         )}
 
-        {/* Panel counts + toggle */}
+        {/* Panel counts + toggle (desktop only) */}
         <div className="flex shrink-0 items-center gap-1">
           {pageHighlights.length > 0 && (
             <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
@@ -419,20 +446,22 @@ export default function SubjectWorkspacePage() {
               {pageNotes.length}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setShowPanel((v) => !v)}
-            title="Notes &amp; highlights panel"
-            className={`flex size-8 items-center justify-center rounded-md border transition ${
-              showPanel
-                ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-                : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
-            }`}
-          >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
+          {isDesktop && (
+            <button
+              type="button"
+              onClick={() => setShowPanel((v) => !v)}
+              title="Notes &amp; highlights panel"
+              className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
+                showPanel
+                  ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
+                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+              }`}
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 
@@ -825,6 +854,25 @@ export default function SubjectWorkspacePage() {
         </div>
       ) : null}
 
+      {/* Mobile floating panel toggle */}
+      {!isDesktop && (
+        <button
+          type="button"
+          onClick={() => setShowPanel((v) => !v)}
+          title="Notes & highlights"
+          className={`fixed bottom-[calc(88px+env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-12 items-center gap-2 rounded-full border px-3 shadow-lg backdrop-blur lg:hidden ${
+            showPanel
+              ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#6cf4e0]"
+              : "border-white/20 bg-[#0d1514]/90 text-white/80"
+          }`}
+        >
+          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="text-xs font-medium">Notes</span>
+        </button>
+      )}
+
       {/* ── Audio footer (unchanged) ── */}
       <footer
         className="sticky bottom-0 z-30 shrink-0 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
@@ -832,11 +880,43 @@ export default function SubjectWorkspacePage() {
       >
         {selectedAudio ? (
           <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{selectedAudio.title}</p>
+            <div className="relative min-w-0 flex-1" data-audio-picker>
+              <button
+                type="button"
+                onClick={() => setShowAudioPicker((v) => !v)}
+                className="max-w-full truncate text-left text-sm font-medium text-white hover:text-[#7cfce9]"
+                title="Change audio"
+              >
+                {selectedAudio.title}
+              </button>
               <p className="text-xs text-white/55">
                 {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
               </p>
+              {showAudioPicker && filteredAudios.length > 0 && (
+                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-56 w-[min(100%,360px)] overflow-y-auto rounded-lg border border-white/15 bg-[#0d1514] p-1 shadow-xl">
+                  {filteredAudios.map((audio) => {
+                    const active = audio.id === selectedAudioId;
+                    return (
+                      <button
+                        key={audio.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAudioId(audio.id);
+                          setShowAudioPicker(false);
+                        }}
+                        className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition ${
+                          active
+                            ? "bg-[#26d9c0]/20 text-[#7cfce9]"
+                            : "text-white/75 hover:bg-white/10 hover:text-white"
+                        }`}
+                        title={audio.title}
+                      >
+                        {audio.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <audio
               ref={audioRef}
