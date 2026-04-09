@@ -448,36 +448,34 @@ export default function SubjectWorkspacePage() {
           </select>
         )}
 
-        {!audioOnlyMode ? (
-          <div className="flex shrink-0 items-center gap-1">
-            {pageHighlights.length > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
-                {pageHighlights.length}
-              </span>
-            )}
-            {pageNotes.length > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
-                {pageNotes.length}
-              </span>
-            )}
-            {isDesktop && (
-              <button
-                type="button"
-                onClick={() => setShowPanel((v) => !v)}
-                title="Notes &amp; highlights panel"
-                className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
-                  showPanel
-                    ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-                    : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
-                }`}
-              >
-                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </button>
-            )}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          {!audioOnlyMode && pageHighlights.length > 0 && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
+              {pageHighlights.length}
+            </span>
+          )}
+          {pageNotes.length > 0 && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
+              {pageNotes.length}
+            </span>
+          )}
+          {isDesktop && (
+            <button
+              type="button"
+              onClick={() => setShowPanel((v) => !v)}
+              title={audioOnlyMode ? "Notes panel" : "Notes &amp; highlights panel"}
+              className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
+                showPanel
+                  ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
+                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+              }`}
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+          )}
+        </div>
       </header>
 
       {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage}</p> : null}
@@ -580,7 +578,7 @@ export default function SubjectWorkspacePage() {
         </div>
 
         {/* ── Side panel (desktop: beside PDF, mobile: bottom drawer overlay) ── */}
-        {!audioOnlyMode && showPanel && (
+        {showPanel && (
           <>
             {/* Mobile backdrop */}
             <button
@@ -902,7 +900,7 @@ export default function SubjectWorkspacePage() {
       ) : null}
 
       {/* Mobile floating panel toggle */}
-      {!audioOnlyMode && !isDesktop && (
+      {!isDesktop && (
         <button
           type="button"
           onClick={() => setShowPanel((v) => !v)}

@@ -75,9 +75,17 @@ function summarizeTitles(values: string[], limit = 12) {
 function pageLabel(pathname: string) {
   if (pathname === "/") return "Dashboard";
   if (pathname === "/subjects") return "Subjects";
+  if (pathname === "/books") return "Books";
+  if (pathname === "/audios") return "Audios";
   if (pathname.startsWith("/subjects/flk1")) return "FLK 1 Subjects";
   if (pathname.startsWith("/subjects/flk2")) return "FLK 2 Subjects";
+  if (pathname.startsWith("/books/flk1")) return "FLK 1 Books";
+  if (pathname.startsWith("/books/flk2")) return "FLK 2 Books";
+  if (pathname.startsWith("/audios/flk1")) return "FLK 1 Audios";
+  if (pathname.startsWith("/audios/flk2")) return "FLK 2 Audios";
   if (pathname.startsWith("/subjects/")) return "Subject Workspace";
+  if (pathname.startsWith("/books/")) return "Book Workspace";
+  if (pathname.startsWith("/audios/")) return "Audio Workspace";
   if (pathname.startsWith("/mocks")) return "Mock Exams";
   if (pathname.startsWith("/progress")) return "Progress";
   return "User Portal";
@@ -86,8 +94,10 @@ function pageLabel(pathname: string) {
 function buildKnowledgeBase(pathname: string, data: ReturnType<typeof usePortalLiveData>) {
   const { subjects, books, audios, videos, mcqs, mocks, attempts } = data;
   const pathParts = pathname.split("/").filter(Boolean);
-  const isSubjectWorkspace = pathParts[0] === "subjects" && pathParts[1] && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
-  const subjectId = isSubjectWorkspace ? decodeURIComponent(pathParts[1]) : "";
+  const isWorkspaceSection = ["subjects", "books", "audios"].includes(pathParts[0] || "");
+  const isSubjectWorkspace =
+    isWorkspaceSection && Boolean(pathParts[1]) && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
+  const subjectId = isSubjectWorkspace ? decodeURIComponent(pathParts[1] || "") : "";
   const activeSubject = subjects.find((subject) => subject.id === subjectId) || null;
 
   const flk1Subjects = subjects.filter((subject) => subject.track === "FLK 1").map((subject) => subject.name);
@@ -134,7 +144,9 @@ function FormattedMessage({ content }: { content: string }) {
 export default function StudentAssistant() {
   const pathname = usePathname();
   const pathParts = pathname.split("/").filter(Boolean);
-  const isSubjectWorkspace = pathParts[0] === "subjects" && Boolean(pathParts[1]) && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
+  const isWorkspaceSection = ["subjects", "books", "audios"].includes(pathParts[0] || "");
+  const isSubjectWorkspace =
+    isWorkspaceSection && Boolean(pathParts[1]) && pathParts[1] !== "flk1" && pathParts[1] !== "flk2";
 
   const [open, setOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<StudyMode>(STUDY_MODES[0]);
