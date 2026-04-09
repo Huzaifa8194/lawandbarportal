@@ -376,6 +376,14 @@ export default function SubjectWorkspacePage() {
     setNoteText("");
   };
 
+  const addBookmarkForCurrentPage = () => {
+    setBookmarks((prev) => {
+      const exists = prev.some((mark) => mark.page === currentPage);
+      if (exists) return prev;
+      return [{ id: uid(), page: currentPage, label: `Page ${currentPage}` }, ...prev];
+    });
+  };
+
   // ── Render ──
   if (!loading && !subject) {
     return (
@@ -431,6 +439,16 @@ export default function SubjectWorkspacePage() {
               </option>
             ))}
           </select>
+        )}
+
+        {!audioOnlyMode && (
+          <button
+            type="button"
+            onClick={addBookmarkForCurrentPage}
+            className="hidden rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10 sm:inline-flex"
+          >
+            Bookmark page {currentPage}
+          </button>
         )}
 
         {/* Audio selector */}
@@ -777,12 +795,7 @@ export default function SubjectWorkspacePage() {
                   <div className="space-y-1.5">
                     <button
                       type="button"
-                      onClick={() =>
-                        setBookmarks((prev) => [
-                          { id: uid(), page: currentPage, label: `Page ${currentPage}` },
-                          ...prev,
-                        ])
-                      }
+                      onClick={addBookmarkForCurrentPage}
                       className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:bg-white/5"
                     >
                       <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
