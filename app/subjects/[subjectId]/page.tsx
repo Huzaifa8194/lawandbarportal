@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
-import StudyPdfPane, { usePreferPdfJsViewer } from "@/app/components/student/study-pdf-pane";
+import StudyPdfPane from "@/app/components/student/study-pdf-pane";
 import StudentAssistant from "@/app/components/student-assistant";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 import { useAuth } from "../../context/auth-context";
@@ -128,7 +128,6 @@ export default function SubjectWorkspacePage() {
   const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
-  const preferPdfJsViewer = usePreferPdfJsViewer();
   const pdfBlobRef = useRef<string | null>(null);
   const lastLoadedBookRef = useRef<string | null>(null);
   const notesSectionRef = useRef<HTMLDivElement | null>(null);
@@ -227,10 +226,6 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     setPdfNumPages(null);
   }, [relatedBookId]);
-
-  useEffect(() => {
-    if (!preferPdfJsViewer) setPdfNumPages(null);
-  }, [preferPdfJsViewer]);
 
   useEffect(() => {
     if (pdfNumPages != null && currentPage > pdfNumPages) {
@@ -377,11 +372,6 @@ export default function SubjectWorkspacePage() {
   const pageHighlightsPreview = useMemo(() => pageHighlights.slice(0, 4), [pageHighlights]);
   const bookmarksPreview = useMemo(() => bookmarks.slice(0, 8), [bookmarks]);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
-  const iframePdfUrl = useMemo(() => {
-    if (!pdfUrl) return null;
-    // Ask built-in PDF viewers to hide side panels for a cleaner reading mode.
-    return `${pdfUrl}#navpanes=0&toolbar=1&statusbar=0&messages=0`;
-  }, [pdfUrl]);
   const backTrackHref = subject?.track === "FLK 2" ? "/subjects/flk2" : "/subjects/flk1";
   const noteCountLabel = pageNotes.length ? `${pageNotes.length} on this page` : "No notes on this page";
   const highlightCountLabel = pageHighlights.length
@@ -584,7 +574,7 @@ export default function SubjectWorkspacePage() {
                     type="button"
                     onClick={() =>
                       setCurrentPage((prev) =>
-                        preferPdfJsViewer && pdfNumPages != null
+                        pdfNumPages != null
                           ? Math.min(prev + 1, pdfNumPages)
                           : prev + 1,
                       )
@@ -604,22 +594,35 @@ export default function SubjectWorkspacePage() {
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111a19] to-[#0b1110] p-3 sm:p-8">
               {relatedBook && pdfUrl ? (
                 <div className="mx-auto max-w-[900px]">
-                  <div className="flex h-[72vh] min-h-[360px] w-full flex-col overflow-hidden sm:h-[82vh] sm:min-h-[680px]">
-                    {iframePdfUrl ? (
+                  <div className="flex h-[78vh] min-h-[420px] w-full flex-col overflow-hidden sm:h-[85vh] sm:min-h-[680px]">
                       <StudyPdfPane
                         bookId={relatedBookId}
                         pdfBlobUrl={pdfUrl}
-                        iframePdfUrl={iframePdfUrl}
                         title={relatedBook?.title || "Study Book PDF"}
                         currentPage={currentPage}
+                        totalPages={pdfNumPages}
+                        onPageChange={setCurrentPage}
                         onNumPages={setPdfNumPages}
-                        onHighlight={(text, color) => {
+                        onHighlight={(text, color, rects) => {
                           setHighlights((prev) => [
                             {
                               id: uid(),
                               page: currentPage,
                               text,
                               color,
+                              rects,
+                              createdAt: new Date().toISOString(),
+                            },
+                            ...prev,
+                          ]);
+                        }}
+                        onNote={(selectedText, noteContent) => {
+                          setNotes((prev) => [
+                            {
+                              id: uid(),
+                              page: currentPage,
+                              text: noteContent,
+                              selectedText,
                               createdAt: new Date().toISOString(),
                             },
                             ...prev,
@@ -627,7 +630,6 @@ export default function SubjectWorkspacePage() {
                         }}
                         pageHighlights={pageHighlights}
                       />
-                    ) : null}
                   </div>
                   <div className="mx-auto mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
                     Page {currentPage}
@@ -775,6 +777,11 @@ export default function SubjectWorkspacePage() {
                     <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
                       {pageNotesPreview.map((note) => (
                         <div key={note.id} className="group rounded-lg bg-white/5 px-3 py-2 text-sm">
+                          {note.selectedText && (
+                            <p className="mb-1 line-clamp-2 border-l-2 border-[#26d9c0]/40 pl-2 text-[11px] italic leading-relaxed text-white/45">
+                              &ldquo;{note.selectedText}&rdquo;
+                            </p>
+                          )}
                           <p className="leading-relaxed">{note.text}</p>
                           <button
                             type="button"

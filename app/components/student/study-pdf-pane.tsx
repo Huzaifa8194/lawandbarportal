@@ -2,10 +2,36 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import type { PdfHighlight } from "@/lib/types/student";
+import type { HighlightRect, PdfHighlight } from "@/lib/types/student";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const HIGHLIGHT_COLORS: PdfHighlight["color"][] = ["yellow", "green", "blue", "pink"];
+
+const COLOR_HEX: Record<PdfHighlight["color"], string> = {
+  yellow: "#fef08a",
+  green: "#86efac",
+  blue: "#93c5fd",
+  pink: "#f9a8d4",
+};
+
+const OVERLAY_BG: Record<PdfHighlight["color"], string> = {
+  yellow: "rgba(254, 240, 138, 0.38)",
+  green: "rgba(134, 239, 172, 0.38)",
+  blue: "rgba(147, 197, 253, 0.38)",
+  pink: "rgba(249, 168, 212, 0.38)",
+};
+
+type ActiveTool = "highlight" | "note" | null;
+
+// ── Hooks ────────────────────────────────────────────────────────────────────
 
 export function usePreferPdfJsViewer() {
   const [prefer, setPrefer] = useState(false);
@@ -19,30 +45,8 @@ export function usePreferPdfJsViewer() {
   return prefer;
 }
 
-if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-}
+// ── Text-matching highlights (backward compat for highlights without rects) ──
 
-const HIGHLIGHT_COLORS: PdfHighlight["color"][] = ["yellow", "green", "blue", "pink"];
-const COLOR_HEX: Record<PdfHighlight["color"], string> = {
-  yellow: "#fef08a",
-  green: "#86efac",
-  blue: "#93c5fd",
-  pink: "#f9a8d4",
-};
-const OVERLAY_BG: Record<PdfHighlight["color"], string> = {
-  yellow: "rgba(254, 240, 138, 0.38)",
-  green: "rgba(134, 239, 172, 0.38)",
-  blue: "rgba(147, 197, 253, 0.38)",
-  pink: "rgba(249, 168, 212, 0.38)",
-};
-
-/**
- * Searches the react-pdf text layer for each highlight's text (whitespace-
- * insensitive, case-insensitive) and applies a coloured background to the
- * matching <span> elements.  Returns a cleanup function that restores the
- * original inline styles.
- */
 function applyHighlightMarks(
   container: HTMLElement,
   highlights: PdfHighlight[],
@@ -57,7 +61,6 @@ function applyHighlightMarks(
   ) as HTMLSpanElement[];
   if (!spans.length) return () => {};
 
-  // Map every character in the concatenated text back to its parent span
   const charToSpan: HTMLSpanElement[] = [];
   let fullText = "";
   for (const span of spans) {
@@ -66,8 +69,6 @@ function applyHighlightMarks(
     fullText += t;
   }
 
-  // Build a whitespace-stripped version + position map so we can match
-  // regardless of how PDF.js splits words across spans
   const noWsToOrig: number[] = [];
   let stripped = "";
   for (let i = 0; i < fullText.length; i++) {
@@ -113,16 +114,36 @@ function applyHighlightMarks(
   };
 }
 
-/* ------------------------------------------------------------------ */
-/*  SelectionToolbar – floating colour-picker that appears on select  */
-/* ------------------------------------------------------------------ */
+// ── Rect capture helper ──────────────────────────────────────────────────────
+
+function captureSelectionRects(
+  pageEl: HTMLElement | null,
+): HighlightRect[] | undefined {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount || !pageEl) return undefined;
+  const range = sel.getRangeAt(0);
+  const cb = pageEl.getBoundingClientRect();
+  const rects = Array.from(range.getClientRects())
+    .filter((r) => r.width > 0 && r.height > 0)
+    .map((r) => ({
+      left: ((r.left - cb.left) / cb.width) * 100,
+      top: ((r.top - cb.top) / cb.height) * 100,
+      width: (r.width / cb.width) * 100,
+      height: (r.height / cb.height) * 100,
+    }));
+  return rects.length ? rects : undefined;
+}
+
+// ── SelectionToolbar (passive mode — shown when no tool is active) ───────────
 
 function SelectionToolbar({
   containerRef,
+  pageRef,
   onHighlight,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
-  onHighlight: (text: string, color: PdfHighlight["color"]) => void;
+  pageRef: React.RefObject<HTMLElement | null>;
+  onHighlight: (text: string, color: PdfHighlight["color"], rects?: HighlightRect[]) => void;
 }) {
   const [pos, setPos] = useState<{
     x: number;
@@ -191,7 +212,8 @@ function SelectionToolbar({
   if (!pos) return null;
 
   const handleHighlight = (color: PdfHighlight["color"]) => {
-    onHighlight(pos.text, color);
+    const rects = captureSelectionRects(pageRef.current);
+    onHighlight(pos.text, color, rects);
     setSaved(true);
     window.getSelection()?.removeAllRanges();
     setTimeout(() => setPos(null), 700);
@@ -283,41 +305,49 @@ function SelectionToolbar({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  StudyPdfPane                                                       */
-/* ------------------------------------------------------------------ */
+// ── Main component ───────────────────────────────────────────────────────────
 
 type StudyPdfPaneProps = {
   bookId: string;
   pdfBlobUrl: string;
-  iframePdfUrl: string;
+  iframePdfUrl?: string;
   title: string;
   currentPage: number;
+  totalPages?: number | null;
+  onPageChange?: (page: number) => void;
   onNumPages: (n: number) => void;
-  onHighlight?: (text: string, color: PdfHighlight["color"]) => void;
+  onHighlight?: (text: string, color: PdfHighlight["color"], rects?: HighlightRect[]) => void;
+  onNote?: (selectedText: string, noteContent: string) => void;
   pageHighlights?: PdfHighlight[];
 };
 
 export default function StudyPdfPane({
   bookId,
   pdfBlobUrl,
-  iframePdfUrl,
   title,
   currentPage,
+  totalPages,
+  onPageChange,
   onNumPages,
   onHighlight,
+  onNote,
   pageHighlights,
 }: StudyPdfPaneProps) {
-  const preferPdfJs = usePreferPdfJsViewer();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeTool, setActiveTool] = useState<ActiveTool>(null);
+  const [selectedColor, setSelectedColor] = useState<PdfHighlight["color"]>("yellow");
+  const [noteDialog, setNoteDialog] = useState<{ open: boolean; text: string }>({
+    open: false,
+    text: "",
+  });
+  const [noteContent, setNoteContent] = useState("");
   const [pageWidth, setPageWidth] = useState(320);
-  const [highlightMode, setHighlightMode] = useState(false);
 
-  const usePdfJs = preferPdfJs || highlightMode;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!usePdfJs || !containerRef.current) return;
     const el = containerRef.current;
+    if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
       if (w) setPageWidth(Math.max(240, Math.floor(w)));
@@ -325,20 +355,21 @@ export default function StudyPdfPane({
     ro.observe(el);
     setPageWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width)));
     return () => ro.disconnect();
-  }, [usePdfJs]);
+  }, []);
 
-  // Paint saved highlights onto the text layer after react-pdf renders it
+  // Paint text-matching highlights for backward compat (highlights without rects)
   useEffect(() => {
-    if (!usePdfJs || !pageHighlights?.length) return;
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !pageHighlights?.length) return;
+    const textMatchHighlights = pageHighlights.filter((h) => !h.rects?.length);
+    if (!textMatchHighlights.length) return;
 
     let cleanup: (() => void) | null = null;
     let debounce: ReturnType<typeof setTimeout>;
 
     const apply = () => {
       cleanup?.();
-      cleanup = applyHighlightMarks(container, pageHighlights);
+      cleanup = applyHighlightMarks(container, textMatchHighlights);
     };
 
     const debouncedApply = () => {
@@ -346,11 +377,8 @@ export default function StudyPdfPane({
       debounce = setTimeout(apply, 60);
     };
 
-    // Re-apply whenever react-pdf swaps the text layer DOM (page change, etc.)
     const observer = new MutationObserver(debouncedApply);
     observer.observe(container, { childList: true, subtree: true });
-
-    // First paint – wait a tick for the text layer to finish
     const initial = setTimeout(apply, 120);
 
     return () => {
@@ -359,119 +387,363 @@ export default function StudyPdfPane({
       observer.disconnect();
       cleanup?.();
     };
-  }, [usePdfJs, pageHighlights]);
+  }, [pageHighlights]);
 
-  const openExternal = (
-    <a
-      href={pdfBlobUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-2 inline-block text-center text-xs font-medium text-[#26d9c0] underline decoration-dotted underline-offset-2"
-    >
-      Open PDF in browser / download
-    </a>
-  );
+  const handleSelectionEnd = useCallback(() => {
+    if (!activeTool) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    const text = sel.toString().trim().replace(/\s+/g, " ");
+    if (text.length < 2) return;
+    const rects = captureSelectionRects(pageRef.current);
+    sel.removeAllRanges();
 
-  const highlightToggle =
-    !preferPdfJs && onHighlight ? (
-      <button
-        type="button"
-        onClick={() => setHighlightMode((prev) => !prev)}
-        title={
-          highlightMode
-            ? "Return to native PDF viewer"
-            : "Switch to interactive viewer to highlight text"
-        }
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
-          highlightMode
-            ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#6cf4e0] shadow-sm shadow-[#26d9c0]/10"
-            : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white/90"
-        }`}
-      >
-        <svg
-          className="size-4"
-          viewBox="0 0 24 24"
-          fill={highlightMode ? "currentColor" : "none"}
-          stroke="currentColor"
-          strokeWidth={2}
+    if (activeTool === "highlight") {
+      onHighlight?.(text, selectedColor, rects);
+    } else if (activeTool === "note") {
+      setNoteDialog({ open: true, text });
+      setNoteContent("");
+    }
+  }, [activeTool, selectedColor, onHighlight]);
+
+  const handleNoteSave = () => {
+    if (!noteContent.trim()) return;
+    onNote?.(noteDialog.text, noteContent.trim());
+    setNoteDialog({ open: false, text: "" });
+    setNoteContent("");
+  };
+
+  const canGoPrev = currentPage > 1;
+  const canGoNext = totalPages ? currentPage < totalPages : true;
+  const goPage = (page: number) =>
+    onPageChange?.(Math.max(1, totalPages ? Math.min(page, totalPages) : page));
+
+  const rectHighlights = pageHighlights?.filter((h) => h.rects?.length) ?? [];
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
+      {/* ── Toolbar ── */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-[#0d1514]/95 px-2 py-1.5 backdrop-blur">
+        {/* Highlight tool */}
+        <button
+          type="button"
+          onClick={() => setActiveTool((prev) => (prev === "highlight" ? null : "highlight"))}
+          className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition ${
+            activeTool === "highlight"
+              ? "border border-[#26d9c0]/50 bg-[#26d9c0]/20 text-[#6cf4e0]"
+              : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-          />
-        </svg>
-        {highlightMode ? "Done highlighting" : "Highlight text"}
-      </button>
-    ) : null;
+          <svg
+            className="size-3.5"
+            viewBox="0 0 24 24"
+            fill={activeTool === "highlight" ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+            />
+          </svg>
+          <span className="hidden sm:inline">Highlight</span>
+        </button>
 
-  if (usePdfJs) {
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col">
-        {highlightToggle && (
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-            {highlightToggle}
-            {highlightMode && (
-              <span className="text-[11px] text-[#6cf4e0]/60 sm:text-xs">
-                Select text → pick a color
-              </span>
-            )}
+        {/* Note tool */}
+        {onNote && (
+          <button
+            type="button"
+            onClick={() => setActiveTool((prev) => (prev === "note" ? null : "note"))}
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition ${
+              activeTool === "note"
+                ? "border border-blue-400/50 bg-blue-500/20 text-blue-300"
+                : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+            }`}
+          >
+            <svg
+              className="size-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+              />
+            </svg>
+            <span className="hidden sm:inline">Note</span>
+          </button>
+        )}
+
+        {/* Color swatches (visible when a tool is active) */}
+        {activeTool && (
+          <>
+            <div className="mx-1 h-4 w-px bg-white/15" />
+            <div className="flex items-center gap-1">
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setSelectedColor(c)}
+                  aria-label={`${c} color`}
+                  className={`size-5 rounded-full border-2 transition sm:size-[22px] ${
+                    selectedColor === c
+                      ? "scale-110 border-white"
+                      : "border-transparent opacity-70 hover:opacity-100"
+                  }`}
+                  style={{ backgroundColor: COLOR_HEX[c] }}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTool(null)}
+              aria-label="Close tool"
+              className="ml-1 flex size-5 items-center justify-center rounded-full text-white/40 hover:bg-white/10 hover:text-white/70"
+            >
+              <svg
+                className="size-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={3}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Page navigation */}
+        {onPageChange && (
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="mr-1 text-[11px] tabular-nums text-white/40">
+              {currentPage}/{totalPages || "\u2014"}
+            </span>
+            <button
+              type="button"
+              onClick={() => canGoPrev && goPage(currentPage - 1)}
+              disabled={!canGoPrev}
+              aria-label="Previous page"
+              className="flex size-7 items-center justify-center rounded-md border border-white/10 text-white/60 transition enabled:hover:bg-white/10 disabled:opacity-30"
+            >
+              <svg
+                className="size-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => canGoNext && goPage(currentPage + 1)}
+              disabled={!canGoNext}
+              aria-label="Next page"
+              className="flex size-7 items-center justify-center rounded-md border border-white/10 text-white/60 transition enabled:hover:bg-white/10 disabled:opacity-30"
+            >
+              <svg
+                className="size-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
           </div>
         )}
-        <div
-          ref={containerRef}
-          className="pdf-zoom-container relative min-h-0 flex-1 overflow-auto bg-[#0b1110]"
+      </div>
+
+      {/* ── Hint bar (when tool active) ── */}
+      {activeTool && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-[#26d9c0]/20 bg-[#26d9c0]/[0.08] px-3 py-1">
+          <span className="size-1.5 shrink-0 rounded-full bg-[#26d9c0]" />
+          <span className="text-[11px] text-[#a8d5c2]">
+            {activeTool === "highlight"
+              ? "Select text to highlight."
+              : "Select text to add a note."}
+          </span>
+        </div>
+      )}
+
+      {/* ── PDF area ── */}
+      <div
+        ref={containerRef}
+        className="pdf-zoom-container relative min-h-0 flex-1 overflow-auto bg-[#0b1110]"
+      >
+        {/* Tap zones for page navigation (mobile/touch) */}
+        {onPageChange && canGoPrev && (
+          <button
+            type="button"
+            onClick={() => goPage(currentPage - 1)}
+            aria-label="Previous page"
+            className="absolute bottom-0 left-0 top-0 z-10 w-10 cursor-pointer opacity-0 md:w-14"
+          />
+        )}
+        {onPageChange && canGoNext && (
+          <button
+            type="button"
+            onClick={() => goPage(currentPage + 1)}
+            aria-label="Next page"
+            className="absolute bottom-0 right-0 top-0 z-10 w-10 cursor-pointer opacity-0 md:w-14"
+          />
+        )}
+
+        <Document
+          key={bookId}
+          file={pdfBlobUrl}
+          loading={
+            <div className="flex min-h-[200px] items-center justify-center p-6 text-sm text-white/60">
+              Rendering PDF\u2026
+            </div>
+          }
+          error={
+            <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-red-300">
+              <p>Could not display the PDF in the app viewer.</p>
+              <a
+                href={pdfBlobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#26d9c0] underline decoration-dotted underline-offset-2"
+              >
+                Open PDF externally
+              </a>
+            </div>
+          }
+          onLoadSuccess={({ numPages }) => onNumPages(numPages)}
+          className="flex flex-col items-center gap-3 py-3"
         >
-          <Document
-            key={bookId}
-            file={pdfBlobUrl}
-            loading={
-              <div className="flex min-h-[200px] items-center justify-center p-6 text-sm text-white/60">
-                Rendering PDF…
-              </div>
-            }
-            error={
-              <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-6 text-center text-sm text-red-300">
-                <p>Could not display the PDF in the app viewer.</p>
-                {openExternal}
-              </div>
-            }
-            onLoadSuccess={({ numPages }) => onNumPages(numPages)}
-            className="flex flex-col items-center gap-3 py-3"
+          <div
+            ref={pageRef}
+            onMouseUp={handleSelectionEnd}
+            onTouchEnd={handleSelectionEnd}
+            className="relative shadow-xl shadow-black/30"
+            style={{
+              lineHeight: 0,
+              cursor: activeTool ? "text" : "default",
+            }}
           >
             <Page
               pageNumber={currentPage}
-              width={Math.min(pageWidth, 900)}
+              width={Math.min(pageWidth - 24, 900)}
               renderTextLayer
               renderAnnotationLayer
             />
-          </Document>
-          {onHighlight && (
-            <SelectionToolbar
-              key={currentPage}
-              containerRef={containerRef}
-              onHighlight={onHighlight}
-            />
-          )}
-        </div>
-        <div className="shrink-0 px-1 pt-2 text-center">{openExternal}</div>
-      </div>
-    );
-  }
+            {/* Rect-based highlight overlays */}
+            {rectHighlights.map((hl) =>
+              hl.rects!.map((r, i) => (
+                <div
+                  key={`hl-${hl.id}-${i}`}
+                  style={{
+                    position: "absolute",
+                    left: `${r.left}%`,
+                    top: `${r.top}%`,
+                    width: `${r.width}%`,
+                    height: `${r.height}%`,
+                    backgroundColor: OVERLAY_BG[hl.color] || OVERLAY_BG.yellow,
+                    pointerEvents: "none",
+                    borderRadius: 2,
+                    mixBlendMode: "multiply",
+                  }}
+                />
+              )),
+            )}
+          </div>
+        </Document>
 
-  return (
-    <div className="flex h-full w-full min-h-0 flex-col overflow-hidden">
-      {highlightToggle && (
-        <div className="mb-2 flex shrink-0 items-center justify-end">
-          {highlightToggle}
+        {/* Passive floating toolbar (when no tool is active) */}
+        {!activeTool && onHighlight && (
+          <SelectionToolbar
+            key={currentPage}
+            containerRef={containerRef}
+            pageRef={pageRef}
+            onHighlight={onHighlight}
+          />
+        )}
+
+        {/* Bottom page indicator */}
+        <div className="pointer-events-none sticky bottom-0 flex justify-center pb-2">
+          <span className="rounded-full bg-black/50 px-3 py-1 text-[11px] tabular-nums text-white/50 backdrop-blur">
+            {currentPage} / {totalPages || "\u2014"}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Note input panel ── */}
+      {noteDialog.open && (
+        <div className="shrink-0 space-y-2 border-t border-white/10 bg-[#0d1514] p-3">
+          <div className="text-xs text-white/50">
+            <span className="font-medium text-white/70">Selected: </span>
+            &ldquo;
+            {noteDialog.text.length > 120
+              ? noteDialog.text.slice(0, 120) + "\u2026"
+              : noteDialog.text}
+            &rdquo;
+          </div>
+          <textarea
+            value={noteContent}
+            onChange={(e) => setNoteContent(e.target.value)}
+            placeholder="Type your note about this text\u2026"
+            rows={3}
+            autoFocus
+            className="w-full rounded-lg border border-white/10 bg-[#0a1110] px-3 py-2 text-sm text-white placeholder:text-white/35 focus:border-[#26d9c0]/40 focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleNoteSave}
+              className="min-h-[36px] flex-1 rounded-lg border border-[#26d9c0]/60 bg-[#26d9c0]/15 px-3 py-1.5 text-sm font-medium text-[#78ffea] active:bg-[#26d9c0]/25"
+            >
+              Save note
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNoteDialog({ open: false, text: "" });
+                setNoteContent("");
+                setActiveTool(null);
+              }}
+              className="min-h-[36px] rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/85"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
-      <iframe
-        key={bookId}
-        src={iframePdfUrl}
-        title={title}
-        className="block flex-1 min-h-[480px] w-full border-0 bg-[#0b1110]"
-      />
+
+      {/* ── External link ── */}
+      <div className="shrink-0 border-t border-white/10 bg-[#0d1514] px-2 py-1 text-center">
+        <a
+          href={pdfBlobUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={title}
+          className="text-[11px] text-[#26d9c0]/60 underline decoration-dotted underline-offset-2 hover:text-[#26d9c0]"
+        >
+          Open PDF in browser / download
+        </a>
+      </div>
     </div>
   );
 }

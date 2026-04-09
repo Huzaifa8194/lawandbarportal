@@ -5,10 +5,19 @@ export type PdfBookmark = {
   createdAt: string;
 };
 
+export type HighlightRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 export type PdfNote = {
   id: string;
   page: number;
   text: string;
+  selectedText?: string;
+  rects?: HighlightRect[];
   createdAt: string;
 };
 
@@ -17,6 +26,7 @@ export type PdfHighlight = {
   page: number;
   text: string;
   color: "yellow" | "green" | "blue" | "pink";
+  rects?: HighlightRect[];
   createdAt: string;
 };
 
