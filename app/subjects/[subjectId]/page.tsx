@@ -395,7 +395,7 @@ export default function SubjectWorkspacePage() {
       {/* ── Compact header (single row) ── */}
       <header
         className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#0f1716]/95 px-3 backdrop-blur sm:px-4"
-        style={{ paddingTop: "calc(10px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
+        style={{ paddingTop: "calc(18px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
       >
         <Link
           href={backTrackHref}
