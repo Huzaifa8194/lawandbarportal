@@ -26,6 +26,7 @@ type PanelTab = "notes" | "highlights" | "bookmarks";
 export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
   const pathname = usePathname();
+  const audioOnlyMode = pathname.startsWith("/audios/");
   const { user } = useAuth();
   const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData({ includeAttempts: false });
   const subject = subjects.find((item) => item.id === params.subjectId);
@@ -354,7 +355,11 @@ export default function SubjectWorkspacePage() {
   const pageHighlights = highlights.filter((item) => item.page === currentPage);
   const pageNotes = notes.filter((item) => item.page === currentPage);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
-  const trackRoot = pathname.startsWith("/books/") ? "/books" : "/subjects";
+  const trackRoot = pathname.startsWith("/books/")
+    ? "/books"
+    : pathname.startsWith("/audios/")
+      ? "/audios"
+      : "/subjects";
   const backTrackHref = subject?.track === "FLK 2" ? `${trackRoot}/flk2` : `${trackRoot}/flk1`;
 
   const addNote = () => {
@@ -407,12 +412,14 @@ export default function SubjectWorkspacePage() {
             {subject?.name || "Study Workspace"}
           </h1>
           <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
-            {subject?.track || "FLK"} &middot; {relatedBook?.title || "No book"}
+            {audioOnlyMode
+              ? `${subject?.track || "FLK"} · Audio only`
+              : `${subject?.track || "FLK"} · ${relatedBook?.title || "No book"}`}
           </p>
         </div>
 
         {/* Book switcher (when multiple books) */}
-        {booksForSubject.length > 1 && (
+        {!audioOnlyMode && booksForSubject.length > 1 && (
           <select
             value={selectedBookId}
             onChange={(e) => setSelectedBookId(e.target.value)}
@@ -441,45 +448,78 @@ export default function SubjectWorkspacePage() {
           </select>
         )}
 
-        {/* Panel counts + toggle (desktop only) */}
-        <div className="flex shrink-0 items-center gap-1">
-          {pageHighlights.length > 0 && (
-            <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
-              {pageHighlights.length}
-            </span>
-          )}
-          {pageNotes.length > 0 && (
-            <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
-              {pageNotes.length}
-            </span>
-          )}
-          {isDesktop && (
-            <button
-              type="button"
-              onClick={() => setShowPanel((v) => !v)}
-              title="Notes &amp; highlights panel"
-              className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
-                showPanel
-                  ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
-              }`}
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </button>
-          )}
-        </div>
+        {!audioOnlyMode ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {pageHighlights.length > 0 && (
+              <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
+                {pageHighlights.length}
+              </span>
+            )}
+            {pageNotes.length > 0 && (
+              <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
+                {pageNotes.length}
+              </span>
+            )}
+            {isDesktop && (
+              <button
+                type="button"
+                onClick={() => setShowPanel((v) => !v)}
+                title="Notes &amp; highlights panel"
+                className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
+                  showPanel
+                    ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
+                    : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ) : null}
       </header>
 
-      {pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage}</p> : null}
+      {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage}</p> : null}
       {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
-      {/* ── Main area: PDF + side panel ── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* PDF column */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {subject && relatedBook && pdfUrl ? (
+          {audioOnlyMode ? (
+            <div className="flex flex-1 items-center justify-center p-6 sm:p-8">
+              <div className="w-full max-w-3xl rounded-2xl border border-white/15 bg-white/5 p-5">
+                <h2 className="text-xl font-semibold text-white">Audio Learning</h2>
+                <p className="mt-1 text-sm text-white/60">
+                  Select an audio from the player bar to start listening.
+                </p>
+                <div className="mt-4 max-h-[320px] space-y-2 overflow-auto rounded-xl border border-white/10 bg-[#0a1110] p-3">
+                  {filteredAudios.map((audio, index) => {
+                    const active = audio.id === selectedAudioId;
+                    return (
+                      <button
+                        key={audio.id}
+                        type="button"
+                        onClick={() => setSelectedAudioId(audio.id)}
+                        className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
+                          active
+                            ? "border-[#26d9c0]/50 bg-[#26d9c0]/10 text-[#7cfce9]"
+                            : "border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/8"
+                        }`}
+                      >
+                        {index + 1}. {audio.title}
+                      </button>
+                    );
+                  })}
+                  {filteredAudios.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-white/15 px-3 py-6 text-center text-sm text-white/45">
+                      No audio lessons for this subject yet.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : subject && relatedBook && pdfUrl ? (
             <StudyPdfPane
               bookId={relatedBookId}
               pdfBlobUrl={pdfUrl}
@@ -540,7 +580,7 @@ export default function SubjectWorkspacePage() {
         </div>
 
         {/* ── Side panel (desktop: beside PDF, mobile: bottom drawer overlay) ── */}
-        {showPanel && (
+        {!audioOnlyMode && showPanel && (
           <>
             {/* Mobile backdrop */}
             <button
@@ -780,7 +820,7 @@ export default function SubjectWorkspacePage() {
       </div>
 
       {/* ── Videos / Mocks (below reader) ── */}
-      {subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
+      {!audioOnlyMode && subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
         <div className="shrink-0 border-t border-white/10 px-3 pb-4 pt-3 sm:px-6">
           <div className="mx-auto max-w-[1200px]">
             {/* Search for resources */}
@@ -862,7 +902,7 @@ export default function SubjectWorkspacePage() {
       ) : null}
 
       {/* Mobile floating panel toggle */}
-      {!isDesktop && (
+      {!audioOnlyMode && !isDesktop && (
         <button
           type="button"
           onClick={() => setShowPanel((v) => !v)}

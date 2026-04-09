@@ -32,6 +32,12 @@ export default function AdminShell({
           </p>
           <h1 className="mt-1 text-lg font-semibold">SQE Admin Console</h1>
           <p className="mt-1 text-sm text-slate-500">Guided content and access management</p>
+          <Link
+            href="/"
+            className="mt-4 inline-flex rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          >
+            ← Back to app
+          </Link>
           <nav className="mt-6 space-y-2">
             {items.map((item) => (
               <Link
