@@ -29,6 +29,22 @@ const OVERLAY_BG: Record<PdfHighlight["color"], string> = {
   pink: "rgba(249, 168, 212, 0.38)",
 };
 
+const PDF_ZOOM_MIN = 0.65;
+const PDF_ZOOM_MAX = 3;
+const PDF_ZOOM_STEP = 1.12;
+/** Horizontal swipe (px) to turn a page on mobile when zoom ≈ 1 */
+const PDF_SWIPE_PAGE_PX = 56;
+
+function clampPdfZoom(z: number) {
+  return Math.min(PDF_ZOOM_MAX, Math.max(PDF_ZOOM_MIN, z));
+}
+
+function touchDistance(touches: TouchList) {
+  const a = touches[0];
+  const b = touches[1];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
 type ActiveTool = "highlight" | "note" | null;
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -321,12 +337,20 @@ export default function StudyPdfPane({
   });
   const [noteContent, setNoteContent] = useState("");
   const [pageWidth, setPageWidth] = useState(320);
+  const [pdfZoom, setPdfZoom] = useState(1);
+  const [mobilePdfChrome, setMobilePdfChrome] = useState(false);
   const [editingPage, setEditingPage] = useState(false);
   const [pageInput, setPageInput] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const pageInputRef = useRef<HTMLInputElement>(null);
+  const pdfZoomRef = useRef(1);
+  const pageNavRef = useRef({
+    currentPage,
+    totalPages: totalPages ?? null,
+    onPageChange,
+  });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -338,6 +362,145 @@ export default function StudyPdfPane({
     ro.observe(el);
     setPageWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width)));
     return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    pdfZoomRef.current = pdfZoom;
+  }, [pdfZoom]);
+
+  useEffect(() => {
+    setPdfZoom(1);
+  }, [bookId]);
+
+  useEffect(() => {
+    pageNavRef.current = { currentPage, totalPages: totalPages ?? null, onPageChange };
+  }, [currentPage, totalPages, onPageChange]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
+    const apply = () => setMobilePdfChrome(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // Pinch-zoom + mobile swipe page-turn (needs non-passive touchmove)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let pinchStart: { dist: number; zoom: number } | null = null;
+    let swipeStart: { x: number; y: number } | null = null;
+    let gestureHadTwoFingers = false;
+    let rafId = 0;
+    let pendingZoom: number | null = null;
+
+    const flushZoom = () => {
+      if (pendingZoom != null) {
+        setPdfZoom(clampPdfZoom(pendingZoom));
+        pendingZoom = null;
+      }
+      rafId = 0;
+    };
+
+    const scheduleZoom = (z: number) => {
+      pendingZoom = z;
+      if (!rafId) rafId = requestAnimationFrame(flushZoom);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        gestureHadTwoFingers = true;
+        pinchStart = { dist: touchDistance(e.touches), zoom: pdfZoomRef.current };
+        swipeStart = null;
+      } else if (e.touches.length === 1 && !gestureHadTwoFingers) {
+        swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStart) {
+        e.preventDefault();
+        const d = touchDistance(e.touches);
+        if (pinchStart.dist < 8) return;
+        const next = clampPdfZoom(pinchStart.zoom * (d / pinchStart.dist));
+        scheduleZoom(next);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 2) return;
+
+      if (e.touches.length === 1) {
+        flushZoom();
+        pinchStart = null;
+        return;
+      }
+
+      flushZoom();
+
+      const { currentPage: cp, totalPages: tp, onPageChange: nav } = pageNavRef.current;
+      const canPrev = cp > 1;
+      const canNext = tp == null || cp < tp;
+
+      if (
+        !gestureHadTwoFingers &&
+        swipeStart &&
+        mobilePdfChrome &&
+        nav &&
+        pdfZoomRef.current <= 1.02
+      ) {
+        const t = e.changedTouches[0];
+        const dx = t.clientX - swipeStart.x;
+        const dy = t.clientY - swipeStart.y;
+        const sel = window.getSelection();
+        if (!sel?.toString().trim()) {
+          if (
+            Math.abs(dx) > PDF_SWIPE_PAGE_PX &&
+            Math.abs(dx) > Math.abs(dy) * 1.25
+          ) {
+            if (dx < 0 && canNext) {
+              nav(Math.min(cp + 1, tp ?? cp + 1));
+            } else if (dx > 0 && canPrev) {
+              nav(cp - 1);
+            }
+          }
+        }
+      }
+
+      gestureHadTwoFingers = false;
+      pinchStart = null;
+      swipeStart = null;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [mobilePdfChrome]);
+
+  // Desktop / trackpad: Ctrl/Cmd + wheel to zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? PDF_ZOOM_STEP : 1 / PDF_ZOOM_STEP;
+      setPdfZoom((z) => clampPdfZoom(z * factor));
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
   // Keyboard navigation: ArrowLeft/ArrowRight to change pages
@@ -429,6 +592,11 @@ export default function StudyPdfPane({
 
   const rectHighlights = pageHighlights?.filter((h) => h.rects?.length) ?? [];
 
+  const basePageWidth = Math.min(pageWidth - 24, 680);
+  const zoomNearOne = pdfZoom <= 1.02;
+  const pdfTouchAction =
+    mobilePdfChrome && zoomNearOne ? "pan-y" : "pan-x pan-y";
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
       {/* ── Toolbar ── */}
@@ -516,6 +684,40 @@ export default function StudyPdfPane({
 
         <div className="flex-1" />
 
+        {/* Zoom: buttons + Ctrl/Cmd+wheel (see title) */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.04] p-0.5">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out"
+            disabled={pdfZoom <= PDF_ZOOM_MIN + 0.01}
+            onClick={() => setPdfZoom((z) => clampPdfZoom(z / PDF_ZOOM_STEP))}
+            className="flex size-7 items-center justify-center rounded text-white/65 transition enabled:hover:bg-white/10 enabled:hover:text-white disabled:opacity-25"
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+            </svg>
+          </button>
+          <span
+            className="min-w-[2.75rem] select-none text-center text-[10px] tabular-nums text-white/45"
+            title="Pinch on touchscreens. Ctrl+scroll (Windows) or ⌘+scroll (Mac)."
+          >
+            {Math.round(pdfZoom * 100)}%
+          </span>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            title="Zoom in"
+            disabled={pdfZoom >= PDF_ZOOM_MAX - 0.01}
+            onClick={() => setPdfZoom((z) => clampPdfZoom(z * PDF_ZOOM_STEP))}
+            className="flex size-7 items-center justify-center rounded text-white/65 transition enabled:hover:bg-white/10 enabled:hover:text-white disabled:opacity-25"
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+
         {/* Open externally (icon only) */}
         <a
           href={pdfBlobUrl}
@@ -600,7 +802,10 @@ export default function StudyPdfPane({
               ? "Select text to highlight."
               : "Select text to add a note."}
           </span>
-          <span className="hidden text-[10px] text-white/25 sm:inline">\u2190 \u2192 keys to flip pages</span>
+          <span className="text-[10px] text-white/25 sm:hidden">
+            Pinch to zoom · Swipe left/right to turn pages
+          </span>
+          <span className="hidden text-[10px] text-white/25 sm:inline">\u2190 \u2192 keys to flip pages · Ctrl/⌘ + scroll to zoom</span>
         </div>
       )}
 
@@ -608,6 +813,8 @@ export default function StudyPdfPane({
       <div
         ref={containerRef}
         className="pdf-zoom-container relative min-h-0 flex-1 overflow-auto bg-[#0b1110]"
+        style={{ touchAction: pdfTouchAction }}
+        title="Pinch or Ctrl/⌘ + scroll to zoom. On phone, swipe horizontally to change pages when not zoomed in."
       >
         {/* Desktop: full-height professional book-edge navigators */}
         {onPageChange && (
@@ -711,7 +918,8 @@ export default function StudyPdfPane({
           >
             <Page
               pageNumber={currentPage}
-              width={Math.min(pageWidth - 24, 680)}
+              width={basePageWidth}
+              scale={pdfZoom}
               renderTextLayer
               renderAnnotationLayer
             />
