@@ -39,6 +39,15 @@ function clampPdfZoom(z: number) {
   return Math.min(PDF_ZOOM_MAX, Math.max(PDF_ZOOM_MIN, z));
 }
 
+function safePdfDownloadBasename(title: string) {
+  const t = title
+    .replace(/[/\\?%*:|"<>]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return t || "book";
+}
+
 function touchDistance(touches: TouchList) {
   const a = touches[0];
   const b = touches[1];
@@ -590,6 +599,21 @@ export default function StudyPdfPane({
     setEditingPage(false);
   };
 
+  const handlePrintPdf = useCallback(() => {
+    const w = window.open(pdfBlobUrl);
+    if (!w) return;
+    const runPrint = () => {
+      try {
+        w.focus();
+        w.print();
+      } catch {
+        /* ignore */
+      }
+    };
+    w.addEventListener("load", runPrint, { once: true });
+    setTimeout(runPrint, 500);
+  }, [pdfBlobUrl]);
+
   const rectHighlights = pageHighlights?.filter((h) => h.rects?.length) ?? [];
 
   const basePageWidth = Math.min(pageWidth - 24, 680);
@@ -600,7 +624,7 @@ export default function StudyPdfPane({
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
       {/* ── Toolbar ── */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-[#0d1514]/95 px-2 py-1.5 backdrop-blur">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-white/10 bg-[#0d1514]/95 px-2 py-1.5 backdrop-blur">
         {/* Highlight tool */}
         <button
           type="button"
@@ -718,18 +742,43 @@ export default function StudyPdfPane({
           </button>
         </div>
 
-        {/* Open externally (icon only) */}
+        {/* Open, download, print (icons — stays in PDF toolbar, not site navbar) */}
         <a
           href={pdfBlobUrl}
           target="_blank"
           rel="noopener noreferrer"
-          title={`Open ${title} externally`}
+          title={`Open ${title} in a new tab`}
           className="flex size-7 items-center justify-center rounded-md text-white/35 transition hover:bg-white/10 hover:text-white/60"
         >
           <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
+        <a
+          href={pdfBlobUrl}
+          download={`${safePdfDownloadBasename(title)}.pdf`}
+          title={`Download ${title}`}
+          className="flex size-7 items-center justify-center rounded-md text-white/35 transition hover:bg-white/10 hover:text-white/60"
+        >
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+          </svg>
+        </a>
+        <button
+          type="button"
+          onClick={handlePrintPdf}
+          title="Print PDF"
+          aria-label="Print PDF"
+          className="flex size-7 items-center justify-center rounded-md text-white/35 transition hover:bg-white/10 hover:text-white/60"
+        >
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+            />
+          </svg>
+        </button>
 
         {/* Page navigation */}
         {onPageChange && (

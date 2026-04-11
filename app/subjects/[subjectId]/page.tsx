@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { studentApi } from "@/lib/services/student-api";
+import { audiosForSubjectSorted } from "@/lib/sort-audios";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import StudyPdfPane from "@/app/components/student/study-pdf-pane";
 import StudentAssistant from "@/app/components/student-assistant";
@@ -56,7 +57,10 @@ export default function SubjectWorkspacePage() {
   const relatedBook =
     booksForSubject.find((b) => b.id === selectedBookId) ?? booksForSubject[0];
   const relatedBookId = typeof relatedBook?.id === "string" ? relatedBook.id.trim() : "";
-  const relatedAudios = audios.filter((item) => item.subjectId === params.subjectId);
+  const relatedAudios = useMemo(
+    () => audiosForSubjectSorted(audios, params.subjectId),
+    [audios, params.subjectId],
+  );
   const relatedVideos = videos.filter((item) => item.subjectId === params.subjectId);
   const relatedMocks = mocks.filter((item) => item.subjectIds.includes(params.subjectId));
 
@@ -96,6 +100,7 @@ export default function SubjectWorkspacePage() {
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [showAudioPicker, setShowAudioPicker] = useState(false);
+  const [showHeaderAudioPicker, setShowHeaderAudioPicker] = useState(false);
   const [audioPosition, setAudioPosition] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioRate, setAudioRate] = useState(1);
@@ -104,6 +109,7 @@ export default function SubjectWorkspacePage() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioPickerRef = useRef<HTMLDivElement | null>(null);
+  const headerAudioPickerRef = useRef<HTMLDivElement | null>(null);
 
   // Side panel state
   const [showPanel, setShowPanel] = useState(false);
@@ -150,6 +156,17 @@ export default function SubjectWorkspacePage() {
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [showAudioPicker]);
+
+  useEffect(() => {
+    if (!showHeaderAudioPicker) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (headerAudioPickerRef.current && target && headerAudioPickerRef.current.contains(target)) return;
+      setShowHeaderAudioPicker(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [showHeaderAudioPicker]);
 
   // ── PDF blob loading ──
   useEffect(() => {
@@ -451,19 +468,56 @@ export default function SubjectWorkspacePage() {
           </button>
         )}
 
-        {/* Audio selector */}
+        {/* Audios (count) — compact picker; current track shown in footer */}
         {filteredAudios.length > 0 && (
-          <select
-            value={selectedAudioId || ""}
-            onChange={(e) => setSelectedAudioId(e.target.value || null)}
-            className="hidden max-w-[160px] truncate rounded-lg border border-white/15 bg-[#0d1514] px-2 py-1 text-xs text-white sm:block"
-          >
-            {filteredAudios.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
-          </select>
+          <div ref={headerAudioPickerRef} className="relative hidden sm:block">
+            <button
+              type="button"
+              onClick={() => {
+                setShowHeaderAudioPicker((v) => !v);
+                setShowAudioPicker(false);
+              }}
+              className="flex max-w-[140px] items-center gap-1 rounded-lg border border-white/15 bg-[#0d1514] px-2.5 py-1 text-xs font-medium text-white/85 transition hover:border-white/25 hover:bg-white/[0.07]"
+              aria-expanded={showHeaderAudioPicker}
+              aria-haspopup="listbox"
+              title="Choose audio lesson"
+            >
+              <span className="truncate">Audios ({filteredAudios.length})</span>
+              <svg className="size-3 shrink-0 text-white/45" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showHeaderAudioPicker && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 max-h-56 w-[min(100vw-24px,280px)] overflow-y-auto rounded-lg border border-white/15 bg-[#0d1514] p-1 shadow-xl"
+                role="listbox"
+              >
+                {filteredAudios.map((audio) => {
+                  const active = audio.id === selectedAudioId;
+                  return (
+                    <button
+                      key={audio.id}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        setSelectedAudioId(audio.id);
+                        setShowHeaderAudioPicker(false);
+                      }}
+                      className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition ${
+                        active
+                          ? "bg-[#26d9c0]/20 text-[#7cfce9]"
+                          : "text-white/75 hover:bg-white/10 hover:text-white"
+                      }`}
+                      title={audio.title}
+                    >
+                      {audio.title}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex shrink-0 items-center gap-1">
@@ -941,7 +995,10 @@ export default function SubjectWorkspacePage() {
             <div ref={audioPickerRef} className="relative min-w-0 flex-1" data-audio-picker>
               <button
                 type="button"
-                onClick={() => setShowAudioPicker((v) => !v)}
+                onClick={() => {
+                  setShowAudioPicker((v) => !v);
+                  setShowHeaderAudioPicker(false);
+                }}
                 className="max-w-full truncate text-left text-sm font-medium text-white hover:text-[#7cfce9]"
                 title="Change audio"
               >
