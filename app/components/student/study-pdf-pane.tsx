@@ -347,6 +347,8 @@ export default function StudyPdfPane({
   const [noteContent, setNoteContent] = useState("");
   const [pageWidth, setPageWidth] = useState(320);
   const [pdfZoom, setPdfZoom] = useState(1);
+  /** Unscaled render size from react-pdf (CSS zoom applied separately for performance). */
+  const [pageRenderSize, setPageRenderSize] = useState<{ w: number; h: number } | null>(null);
   const [mobilePdfChrome, setMobilePdfChrome] = useState(false);
   const [editingPage, setEditingPage] = useState(false);
   const [pageInput, setPageInput] = useState("");
@@ -617,9 +619,26 @@ export default function StudyPdfPane({
   const rectHighlights = pageHighlights?.filter((h) => h.rects?.length) ?? [];
 
   const basePageWidth = Math.min(pageWidth - 24, 680);
+
+  useEffect(() => {
+    setPageRenderSize(null);
+  }, [bookId, currentPage, basePageWidth]);
+
+  const handlePdfPageLoadSuccess = useCallback((page: { width: number; height: number }) => {
+    setPageRenderSize({ w: page.width, h: page.height });
+  }, []);
+
+  const pageLayoutHeight = pageRenderSize?.h ?? basePageWidth * 1.35;
   const zoomNearOne = pdfZoom <= 1.02;
-  const pdfTouchAction =
-    mobilePdfChrome && zoomNearOne ? "pan-y" : "pan-x pan-y";
+  /** When zoomed, let the browser handle pan with full momentum (no custom pan-y lock). */
+  const pdfTouchAction = mobilePdfChrome && zoomNearOne ? "pan-y" : "auto";
+
+  const scaledViewportW = basePageWidth * pdfZoom;
+  const scaledViewportH = pageLayoutHeight * pdfZoom;
+  const pdfViewportStyle =
+    pageRenderSize != null
+      ? { width: scaledViewportW, height: scaledViewportH, flexShrink: 0 as const }
+      : { width: scaledViewportW, minHeight: scaledViewportH, flexShrink: 0 as const };
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
@@ -953,25 +972,34 @@ export default function StudyPdfPane({
             </div>
           }
           onLoadSuccess={({ numPages }) => onNumPages(numPages)}
-          className="flex flex-col items-center gap-3 py-3"
+          className="flex w-full min-w-0 flex-col items-center py-3"
         >
-          <div
-            ref={pageRef}
-            onMouseUp={handleSelectionEnd}
-            onTouchEnd={handleSelectionEnd}
-            className="relative shadow-xl shadow-black/30"
-            style={{
-              lineHeight: 0,
-              cursor: activeTool ? "text" : "default",
-            }}
-          >
-            <Page
-              pageNumber={currentPage}
-              width={basePageWidth}
-              scale={pdfZoom}
-              renderTextLayer
-              renderAnnotationLayer
-            />
+          {/*
+            Viewport sized to scaled dimensions so overflow:auto uses native smooth scrolling.
+            Page renders once at base width; zoom is CSS transform only (no pdf.js re-raster per zoom).
+          */}
+          <div className="relative shrink-0" style={pdfViewportStyle}>
+            <div
+              ref={pageRef}
+              onMouseUp={handleSelectionEnd}
+              onTouchEnd={handleSelectionEnd}
+              className="absolute left-0 top-0 shadow-xl shadow-black/30"
+              style={{
+                width: basePageWidth,
+                lineHeight: 0,
+                cursor: activeTool ? "text" : "default",
+                transform: `scale(${pdfZoom})`,
+                transformOrigin: "top left",
+                willChange: "transform",
+              }}
+            >
+              <Page
+                pageNumber={currentPage}
+                width={basePageWidth}
+                onLoadSuccess={handlePdfPageLoadSuccess}
+                renderTextLayer
+                renderAnnotationLayer
+              />
             {/* Rect-based highlight overlays */}
             {rectHighlights.map((hl) =>
               hl.rects!.map((r, i) => (
@@ -991,6 +1019,7 @@ export default function StudyPdfPane({
                 />
               )),
             )}
+            </div>
           </div>
         </Document>
 

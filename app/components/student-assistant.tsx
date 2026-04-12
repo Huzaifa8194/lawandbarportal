@@ -212,23 +212,51 @@ export default function StudentAssistant() {
     }
   };
 
+  /* Same ~88px lift as the notes FAB so the launcher sits above the sticky audio footer */
+  const workspaceDockBottom =
+    "bottom-[calc(88px+env(safe-area-inset-bottom,0px))]";
+
   return (
-    <div className={`fixed z-[70] ${isSubjectWorkspace ? "right-3 top-1/2 -translate-y-1/2" : "bottom-5 right-5"}`}>
+    <div
+      className={`fixed z-[70] ${
+        isSubjectWorkspace
+          ? `left-3 ${workspaceDockBottom} w-[min(92vw,420px)] max-w-[calc(100vw-1.5rem)]`
+          : "bottom-5 right-5"
+      }`}
+    >
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`group bg-[#0f172a] text-slate-100 shadow-lg ring-1 ring-white/10 transition-all hover:bg-[#111c32] hover:ring-[#26d9c0]/40 ${
+          aria-label="Open SQE study partner"
+          className={`group text-slate-100 shadow-lg transition-all hover:bg-[#111c32] hover:ring-[#26d9c0]/40 ${
             isSubjectWorkspace
-              ? "rounded-l-xl rounded-r-md px-2 py-3 text-xs font-semibold tracking-wide [writing-mode:vertical-rl]"
-              : "flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold"
+              ? "flex max-w-[9.5rem] items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-left text-[10px] font-semibold leading-snug ring-1 ring-white/10 sm:max-w-none sm:gap-2 sm:px-2.5 sm:py-2 sm:text-xs"
+              : "flex items-center gap-2 rounded-full bg-[#0f172a] px-4 py-2.5 text-sm font-semibold ring-1 ring-white/10"
           }`}
         >
-          <span className={isSubjectWorkspace ? "" : "inline-block text-base leading-none"}>{isSubjectWorkspace ? "" : "⚖️ "}</span>
-          SQE Study Partner
+          <span className="inline-block shrink-0 text-sm leading-none sm:text-base" aria-hidden>
+            ⚖️
+          </span>
+          <span className="min-w-0">
+            {isSubjectWorkspace ? (
+              <>
+                <span className="block text-[9px] font-medium uppercase tracking-wide text-slate-400">SQE</span>
+                <span className="block">Study partner</span>
+              </>
+            ) : (
+              <>SQE Study Partner</>
+            )}
+          </span>
         </button>
       ) : (
-        <div className="flex h-[min(80vh,680px)] w-[min(92vw,420px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl">
+        <div
+          className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl ${
+            isSubjectWorkspace
+              ? "h-[min(80vh,calc(100vh-7rem-env(safe-area-inset-bottom,0px)))] w-full"
+              : "h-[min(80vh,680px)] w-[min(92vw,420px)]"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-white/10 bg-[#0f172a] px-4 py-2.5">
             <div>
               <p className="text-sm font-semibold text-slate-100">⚖️ SQE Study Partner</p>
