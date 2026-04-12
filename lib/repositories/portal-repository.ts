@@ -123,19 +123,21 @@ async function fetchPurchasedBookIdsClient(emailRaw: string): Promise<Set<string
  */
 export async function listMergedMockExamsForStudent(user: { uid: string; email: string | null } | null): Promise<MockExam[]> {
   const portalMocks = (await listMockExams()).filter((m) => m.published);
-  if (!user?.email?.trim()) {
+  const emailRaw = user?.email ?? "";
+  if (!user || !emailRaw.trim()) {
     return portalMocks;
   }
+  const emailNormalized = emailRaw.trim().toLowerCase();
 
   let legacyMocks: MockExam[] = [];
   try {
-    const purchased = await fetchPurchasedBookIdsClient(user.email);
+    const purchased = await fetchPurchasedBookIdsClient(emailRaw);
     const examsSnap = await getDocs(query(collection(db, "exams")));
     legacyMocks = examsSnap.docs
       .map((d) => {
         const data = d.data() as LegacyExamDoc;
         if (data.published === false) return null;
-        if (!userCanAccessLegacyExam(user.uid, user.email.trim().toLowerCase(), purchased, data)) return null;
+        if (!userCanAccessLegacyExam(user.uid, emailNormalized, purchased, data)) return null;
         const row = legacyExamDocToMockExam(d.id, data);
         if (!row.questionIds.length) return null;
         return row;
