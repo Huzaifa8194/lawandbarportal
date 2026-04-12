@@ -640,6 +640,9 @@ export default function StudyPdfPane({
       ? { width: scaledViewportW, height: scaledViewportH, flexShrink: 0 as const }
       : { width: scaledViewportW, minHeight: scaledViewportH, flexShrink: 0 as const };
 
+  /** When wider than the scroll area, left-align so scrollLeft=0 is the PDF left edge (symmetric pan). */
+  const pdfScrollAlignLeft = scaledViewportW > pageWidth - 8;
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
       {/* ── Toolbar ── */}
@@ -972,13 +975,18 @@ export default function StudyPdfPane({
             </div>
           }
           onLoadSuccess={({ numPages }) => onNumPages(numPages)}
-          className="flex w-full min-w-0 flex-col items-center py-3"
+          className="block w-full min-w-0"
         >
           {/*
             Viewport sized to scaled dimensions so overflow:auto uses native smooth scrolling.
             Page renders once at base width; zoom is CSS transform only (no pdf.js re-raster per zoom).
+            When zoomed past the pane width, avoid flex items-center — it pins the block in a way that
+            blocks panning to the true left edge; use text-center only when the page fits.
           */}
-          <div className="relative shrink-0" style={pdfViewportStyle}>
+          <div
+            className={`min-w-full px-3 py-3 ${pdfScrollAlignLeft ? "text-left" : "text-center"}`}
+          >
+            <div className="relative inline-block shrink-0 align-top" style={pdfViewportStyle}>
             <div
               ref={pageRef}
               onMouseUp={handleSelectionEnd}
@@ -1019,6 +1027,7 @@ export default function StudyPdfPane({
                 />
               )),
             )}
+            </div>
             </div>
           </div>
         </Document>

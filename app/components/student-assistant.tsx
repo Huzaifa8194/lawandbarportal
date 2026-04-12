@@ -212,18 +212,20 @@ export default function StudentAssistant() {
     }
   };
 
-  /* Same ~88px lift as the notes FAB so the launcher sits above the sticky audio footer */
-  const workspaceDockBottom =
-    "bottom-[calc(88px+env(safe-area-inset-bottom,0px))]";
+  /*
+   * Mobile (<lg): dock under sticky header (top-right) so we never sit on the audio footer.
+   * Desktop (lg+): bottom-left with the same lift as the notes FAB above the footer.
+   */
+  const workspaceDockClasses = isSubjectWorkspace
+    ? [
+        "w-[min(92vw,420px)] max-w-[calc(100vw-1.5rem)]",
+        "max-lg:left-auto max-lg:right-3 max-lg:top-[calc(5rem+env(safe-area-inset-top,0px))] max-lg:bottom-auto",
+        "lg:left-3 lg:right-auto lg:top-auto lg:bottom-[calc(88px+env(safe-area-inset-bottom,0px))]",
+      ].join(" ")
+    : "bottom-5 right-5";
 
   return (
-    <div
-      className={`fixed z-[70] ${
-        isSubjectWorkspace
-          ? `left-3 ${workspaceDockBottom} w-[min(92vw,420px)] max-w-[calc(100vw-1.5rem)]`
-          : "bottom-5 right-5"
-      }`}
-    >
+    <div className={`fixed z-[70] ${workspaceDockClasses}`}>
       {!open ? (
         <button
           type="button"
@@ -253,7 +255,7 @@ export default function StudentAssistant() {
         <div
           className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl ${
             isSubjectWorkspace
-              ? "h-[min(80vh,calc(100vh-7rem-env(safe-area-inset-bottom,0px)))] w-full"
+              ? "w-full max-lg:h-[min(70vh,calc(100dvh-9rem-env(safe-area-inset-top,0px)))] lg:h-[min(80vh,calc(100vh-7rem-env(safe-area-inset-bottom,0px)))]"
               : "h-[min(80vh,680px)] w-[min(92vw,420px)]"
           }`}
         >
