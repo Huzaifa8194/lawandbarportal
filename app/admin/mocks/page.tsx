@@ -307,7 +307,7 @@ export default function AdminMocksPage() {
     setForm({
       id: mock.id,
       title: mock.title,
-      track: mock.track,
+      track: mock.track === "FLK 2" ? "FLK 2" : "FLK 1",
       subjectIds: Array.isArray(mock.subjectIds) ? mock.subjectIds.map(String) : [],
       questionIds: normalizeMockQuestionIds(mock.questionIds).map(String),
       durationMinutes: mock.durationMinutes,

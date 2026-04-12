@@ -125,7 +125,8 @@ export type AdminMcqListResponse = {
 export type MockExam = {
   id: string;
   title: string;
-  track: FlkTrack;
+  /** `Free` = legacy / ungrouped mocks (Main website had no `flkGroup`). */
+  track: FlkTrack | "Free";
   subjectIds: string[];
   questionIds: string[];
   durationMinutes: number;
@@ -133,6 +134,8 @@ export type MockExam = {
   revealAnswersInPractice: boolean;
   published: boolean;
   updatedAt?: string;
+  /** Present on some legacy `exams` documents for sorting. */
+  createdAt?: string;
 };
 
 export type AccessCode = {

@@ -6,7 +6,7 @@ import {
   listAudios,
   listBooks,
   listMcqs,
-  listMockExams,
+  listMergedMockExamsForStudent,
   listSubjects,
   listVideos,
 } from "@/lib/repositories/portal-repository";
@@ -49,7 +49,9 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
           listBooks(),
           listAudios(),
           listMcqs(),
-          listMockExams(),
+          listMergedMockExamsForStudent(
+            user ? { uid: user.uid, email: user.email ?? null } : null,
+          ),
           listVideos(),
         ]);
         if (!mounted) return;
