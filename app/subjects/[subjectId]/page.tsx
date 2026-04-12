@@ -991,42 +991,94 @@ export default function SubjectWorkspacePage() {
         style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
       >
         {selectedAudio ? (
-          <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-3">
-            <div ref={audioPickerRef} className="relative min-w-0 flex-1" data-audio-picker>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAudioPicker((v) => !v);
-                  setShowHeaderAudioPicker(false);
-                }}
-                className="max-w-full truncate text-left text-sm font-medium text-white hover:text-[#7cfce9]"
-                title="Change audio"
-              >
-                {selectedAudio.title}
-              </button>
-              <p className="text-xs text-white/55">
-                {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
-              </p>
+          <div className="mx-auto flex max-w-[1200px] flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+            <div ref={audioPickerRef} className="relative min-w-0 w-full md:flex-1" data-audio-picker>
+              {/* Mobile: labelled block so it is obvious this is audio lessons and tappable */}
+              <div className="rounded-xl border border-white/12 bg-[#0d1514]/90 p-3 md:border-0 md:bg-transparent md:p-0">
+                <div className="mb-2 flex items-center justify-between md:hidden">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6cf4e0]">
+                    Audios
+                  </span>
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-white/65">
+                    {filteredAudios.length} {filteredAudios.length === 1 ? "lesson" : "lessons"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAudioPicker((v) => !v);
+                    setShowHeaderAudioPicker(false);
+                  }}
+                  aria-expanded={showAudioPicker}
+                  aria-haspopup="listbox"
+                  title="Choose a different audio lesson"
+                  className="flex w-full items-center gap-2 rounded-lg border border-white/15 bg-[#0b1110] px-3 py-2.5 text-left transition hover:border-[#26d9c0]/35 hover:bg-[#0f1816] md:border-0 md:bg-transparent md:px-0 md:py-0 md:hover:border-transparent md:hover:bg-transparent"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-white md:hover:text-[#7cfce9]">
+                      {selectedAudio.title}
+                    </span>
+                    <span className="mt-1 block text-[11px] text-white/45 md:hidden">
+                      Tap to change lesson · {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
+                    </span>
+                    <span className="mt-0.5 hidden text-xs text-white/55 md:block">
+                      {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
+                    </span>
+                  </div>
+                  <span
+                    className={`flex size-8 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white/50 md:border-0 md:bg-transparent ${
+                      showAudioPicker ? "text-[#6cf4e0]" : ""
+                    }`}
+                    aria-hidden
+                  >
+                    <svg
+                      className={`size-4 transition-transform ${showAudioPicker ? "rotate-180" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
               {showAudioPicker && filteredAudios.length > 0 && (
-                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-56 w-[min(100%,360px)] overflow-y-auto rounded-lg border border-white/15 bg-[#0d1514] p-1 shadow-xl">
+                <div
+                  className="absolute bottom-full left-0 z-50 mb-2 max-h-56 w-full min-w-[min(100%,100vw-1.5rem)] max-w-[min(100%,420px)] overflow-y-auto rounded-xl border border-white/15 bg-[#0d1514] p-1.5 shadow-2xl md:w-[min(100%,360px)] md:min-w-0"
+                  role="listbox"
+                  aria-label="Audio lessons"
+                >
+                  <p className="px-2 pb-1.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40 md:hidden">
+                    Choose a lesson
+                  </p>
                   {filteredAudios.map((audio) => {
                     const active = audio.id === selectedAudioId;
                     return (
                       <button
                         key={audio.id}
                         type="button"
+                        role="option"
+                        aria-selected={active}
                         onClick={() => {
                           setSelectedAudioId(audio.id);
                           setShowAudioPicker(false);
                         }}
-                        className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition ${
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                           active
                             ? "bg-[#26d9c0]/20 text-[#7cfce9]"
-                            : "text-white/75 hover:bg-white/10 hover:text-white"
+                            : "text-white/80 hover:bg-white/10 hover:text-white"
                         }`}
                         title={audio.title}
                       >
-                        {audio.title}
+                        {active ? (
+                          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#26d9c0]/25 text-[10px] text-[#7cfce9]">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className="size-5 shrink-0 rounded-full border border-white/10" aria-hidden />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{audio.title}</span>
                       </button>
                     );
                   })}
@@ -1045,24 +1097,29 @@ export default function SubjectWorkspacePage() {
               }}
               onTimeUpdate={(event) => setAudioPosition(event.currentTarget.currentTime || 0)}
             />
-            <div className="flex gap-1">
-              {[0.75, 1, 1.25, 1.5].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    setAudioRate(value);
-                    if (audioRef.current) audioRef.current.playbackRate = value;
-                  }}
-                  className={`rounded border px-2 py-1 text-xs ${
-                    audioRate === value
-                      ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#7cfce9]"
-                      : "border-white/15 bg-white/5 text-white/75"
-                  }`}
-                >
-                  {value}x
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-full text-[10px] font-medium uppercase tracking-wide text-white/35 md:hidden">
+                Playback speed
+              </span>
+              <div className="flex gap-1">
+                {[0.75, 1, 1.25, 1.5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setAudioRate(value);
+                      if (audioRef.current) audioRef.current.playbackRate = value;
+                    }}
+                    className={`rounded border px-2 py-1 text-xs ${
+                      audioRate === value
+                        ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#7cfce9]"
+                        : "border-white/15 bg-white/5 text-white/75"
+                    }`}
+                  >
+                    {value}x
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
