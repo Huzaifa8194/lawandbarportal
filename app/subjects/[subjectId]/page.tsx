@@ -598,6 +598,7 @@ export default function SubjectWorkspacePage() {
               totalPages={pdfNumPages}
               onPageChange={setCurrentPage}
               onNumPages={setPdfNumPages}
+              mobileToolbarAddon={<StudentAssistant inlineMobile />}
               onHighlight={(text, color, rects) => {
                 setHighlights((prev) => [
                   {
@@ -1019,7 +1020,7 @@ export default function SubjectWorkspacePage() {
                       {selectedAudio.title}
                     </span>
                     <span className="mt-1 block text-[11px] text-white/45 md:hidden">
-                      Tap to change lesson · {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
+                      {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
                     </span>
                     <span className="mt-0.5 hidden text-xs text-white/55 md:block">
                       {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
@@ -1128,7 +1129,6 @@ export default function SubjectWorkspacePage() {
           </div>
         )}
       </footer>
-      <StudentAssistant />
     </div>
   );
 }

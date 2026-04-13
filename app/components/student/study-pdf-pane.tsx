@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import type { HighlightRect, PdfHighlight } from "@/lib/types/student";
 
@@ -324,6 +324,7 @@ type StudyPdfPaneProps = {
   onHighlight?: (text: string, color: PdfHighlight["color"], rects?: HighlightRect[]) => void;
   onNote?: (selectedText: string, noteContent: string) => void;
   pageHighlights?: PdfHighlight[];
+  mobileToolbarAddon?: ReactNode;
 };
 
 export default function StudyPdfPane({
@@ -337,6 +338,7 @@ export default function StudyPdfPane({
   onHighlight,
   onNote,
   pageHighlights,
+  mobileToolbarAddon,
 }: StudyPdfPaneProps) {
   const [activeTool, setActiveTool] = useState<ActiveTool>(null);
   const [selectedColor, setSelectedColor] = useState<PdfHighlight["color"]>("yellow");
@@ -729,6 +731,7 @@ export default function StudyPdfPane({
         )}
 
         <div className="flex-1" />
+        {mobileToolbarAddon ? <div className="lg:hidden">{mobileToolbarAddon}</div> : null}
 
         {/* Zoom: buttons + Ctrl/Cmd+wheel (see title) */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.04] p-0.5">

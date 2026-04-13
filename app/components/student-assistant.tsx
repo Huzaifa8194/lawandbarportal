@@ -141,7 +141,11 @@ function FormattedMessage({ content }: { content: string }) {
   );
 }
 
-export default function StudentAssistant() {
+export default function StudentAssistant({
+  inlineMobile = false,
+}: {
+  inlineMobile?: boolean;
+}) {
   const pathname = usePathname();
   const pathParts = pathname.split("/").filter(Boolean);
   const isWorkspaceSection = ["subjects", "books", "audios"].includes(pathParts[0] || "");
@@ -223,16 +227,27 @@ export default function StudentAssistant() {
         "lg:left-3 lg:right-auto lg:top-auto lg:bottom-[calc(88px+env(safe-area-inset-bottom,0px))]",
       ].join(" ")
     : "bottom-5 right-5";
+  const hideFloatingMobile = isSubjectWorkspace && !inlineMobile;
+  const rootClassName = inlineMobile
+    ? "relative z-[75] lg:hidden"
+    : `fixed z-[70] ${workspaceDockClasses} ${hideFloatingMobile ? "max-lg:hidden" : ""}`;
+  const panelClassName = inlineMobile
+    ? "fixed inset-x-2 top-[calc(5rem+env(safe-area-inset-top,0px))] bottom-[calc(88px+env(safe-area-inset-bottom,0px))] h-auto"
+    : isSubjectWorkspace
+      ? "w-full max-lg:h-[min(70vh,calc(100dvh-9rem-env(safe-area-inset-top,0px)))] lg:h-[min(80vh,calc(100vh-7rem-env(safe-area-inset-bottom,0px)))]"
+      : "h-[min(80vh,680px)] w-[min(92vw,420px)]";
 
   return (
-    <div className={`fixed z-[70] ${workspaceDockClasses}`}>
+    <div className={rootClassName}>
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open SQE study partner"
           className={`group text-slate-100 shadow-lg transition-all hover:bg-[#111c32] hover:ring-[#26d9c0]/40 ${
-            isSubjectWorkspace
+            inlineMobile
+              ? "flex size-7 items-center justify-center rounded-md border border-white/15 bg-[#0f172a] text-sm font-semibold ring-1 ring-white/10"
+              : isSubjectWorkspace
               ? "flex max-w-[9.5rem] items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-left text-[10px] font-semibold leading-snug ring-1 ring-white/10 sm:max-w-none sm:gap-2 sm:px-2.5 sm:py-2 sm:text-xs"
               : "flex items-center gap-2 rounded-full bg-[#0f172a] px-4 py-2.5 text-sm font-semibold ring-1 ring-white/10"
           }`}
@@ -240,7 +255,7 @@ export default function StudentAssistant() {
           <span className="inline-block shrink-0 text-sm leading-none sm:text-base" aria-hidden>
             ⚖️
           </span>
-          <span className="min-w-0">
+          <span className={`min-w-0 ${inlineMobile ? "hidden" : ""}`}>
             {isSubjectWorkspace ? (
               <>
                 <span className="block text-[9px] font-medium uppercase tracking-wide text-slate-400">SQE</span>
@@ -254,9 +269,7 @@ export default function StudentAssistant() {
       ) : (
         <div
           className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] text-slate-100 shadow-2xl ${
-            isSubjectWorkspace
-              ? "w-full max-lg:h-[min(70vh,calc(100dvh-9rem-env(safe-area-inset-top,0px)))] lg:h-[min(80vh,calc(100vh-7rem-env(safe-area-inset-bottom,0px)))]"
-              : "h-[min(80vh,680px)] w-[min(92vw,420px)]"
+            panelClassName
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/10 bg-[#0f172a] px-4 py-2.5">
