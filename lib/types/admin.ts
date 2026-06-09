@@ -1,11 +1,22 @@
 export type FlkTrack = "FLK 1" | "FLK 2";
 
+export type StudentProgressSummary = {
+  mockAttempts: number;
+  examAttempts: number;
+  bestMockScore: number | null;
+  averageMockScore: number | null;
+  booksEngaged: number;
+  audiosPlayed: number;
+  lastActivityAt: string | null;
+};
+
 export type UserProfile = {
   uid: string;
   email: string;
   fullName?: string;
   isAdmin?: boolean;
   accessEnabled?: boolean;
+  progress?: StudentProgressSummary;
   /** Firestore `accessEnabled` before effective calculation (`null` = field absent). */
   accessEnabledRaw?: boolean | null;
   /** Granted by redeeming an admin-generated access code (persists on user doc). */

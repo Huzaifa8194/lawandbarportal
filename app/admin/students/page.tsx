@@ -6,7 +6,69 @@ import AdminShell from "@/app/components/admin/admin-shell";
 import FormSection from "@/app/components/admin/form-section";
 import ToastInline from "@/app/components/admin/toast-inline";
 import { adminApi } from "@/lib/services/admin-api";
-import type { AccessCode, StudentAccessDebugResponse, UserProfile } from "@/lib/types/admin";
+import type {
+  AccessCode,
+  StudentAccessDebugResponse,
+  StudentProgressSummary,
+  UserProfile,
+} from "@/lib/types/admin";
+
+function formatActivityDate(iso: string | null | undefined) {
+  if (!iso) return "No activity yet";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "No activity yet";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function ProgressSummary({ progress }: { progress: StudentProgressSummary | undefined }) {
+  if (!progress) {
+    return <p className="mt-3 text-xs text-slate-500">Progress data unavailable.</p>;
+  }
+
+  const hasStudy =
+    progress.mockAttempts > 0 || progress.booksEngaged > 0 || progress.audiosPlayed > 0;
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Study progress</p>
+        <p className="text-xs text-slate-500">Last active: {formatActivityDate(progress.lastActivityAt)}</p>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-medium text-slate-500">Mock attempts</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">
+            {progress.mockAttempts}
+            {progress.examAttempts > 0 ? (
+              <span className="ml-1 text-xs font-normal text-slate-500">
+                ({progress.examAttempts} exam)
+              </span>
+            ) : null}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-medium text-slate-500">Best / avg score</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">
+            {progress.bestMockScore != null ? `${progress.bestMockScore}%` : "—"}
+            <span className="mx-1 font-normal text-slate-400">/</span>
+            {progress.averageMockScore != null ? `${progress.averageMockScore}%` : "—"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-medium text-slate-500">Books engaged</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">{progress.booksEngaged}</p>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-medium text-slate-500">Audios played</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">{progress.audiosPlayed}</p>
+        </div>
+      </div>
+      {!hasStudy ? (
+        <p className="mt-2 text-xs text-slate-500">No recorded study activity yet.</p>
+      ) : null}
+    </div>
+  );
+}
 
 function ExplanationLine({ text }: { text: string }) {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -198,6 +260,23 @@ export default function AdminStudentsPage() {
     return sorted;
   }, [students, query, bundleFilter, accessFilter, sortKey]);
 
+  const progressStats = useMemo(() => {
+    const activeStudents = students.filter((student) => {
+      const progress = student.progress;
+      return Boolean(
+        progress &&
+          (progress.mockAttempts > 0 || progress.booksEngaged > 0 || progress.audiosPlayed > 0),
+      );
+    }).length;
+    const enabledStudents = students.filter((student) => student.accessEnabled === true).length;
+    const totalAttempts = students.reduce((sum, student) => sum + (student.progress?.mockAttempts ?? 0), 0);
+    return {
+      activeStudents,
+      enabledStudents,
+      totalAttempts,
+    };
+  }, [students]);
+
   const filteredCodes = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
     let list = codes;
@@ -317,9 +396,33 @@ export default function AdminStudentsPage() {
     <AdminGuard>
       <AdminShell
         title="Students & Access"
-        subtitle="Manage account activation with safe, clear controls and searchable student records."
+        subtitle="Review activation status, study progress, and access controls in one place."
       >
         {feedback ? <ToastInline type={feedback.type} message={feedback.message} /> : null}
+
+        <section className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Portal access on</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">
+              {initialLoading ? "—" : progressStats.enabledStudents}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">of {initialLoading ? "—" : students.length} students</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active learners</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-indigo-700">
+              {initialLoading ? "—" : progressStats.activeStudents}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">With books, audio, or mock activity</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mock attempts</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+              {initialLoading ? "—" : progressStats.totalAttempts}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">Across all student accounts</p>
+          </div>
+        </section>
 
         <section className="relative grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           {listRefreshing && !initialLoading ? (
@@ -445,7 +548,12 @@ export default function AdminStudentsPage() {
                         </button>
                         <p className="text-sm text-slate-600">{student.email}</p>
                         <p className="mt-1 text-xs text-slate-500">UID: {student.uid}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Activation
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span
                             className={`rounded-md px-2 py-1 text-xs font-medium ${
                               sqeEligible ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-600"
@@ -480,6 +588,7 @@ export default function AdminStudentsPage() {
                             {toggling ? "Saving…" : enabled ? "Disable access" : "Enable access"}
                           </button>
                         </div>
+                        <ProgressSummary progress={student.progress} />
                       </div>
                     );
                   })}

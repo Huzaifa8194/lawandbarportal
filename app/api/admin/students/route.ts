@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { getSqeBundlePurchaserEmailSet } from "../_lib/sqe-bundle-purchase";
+import { buildStudentProgressMap } from "../_lib/student-progress";
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +35,10 @@ export async function GET(request: NextRequest) {
     const emails = users.map((u) => (u.email ? String(u.email).toLowerCase() : "")).filter(Boolean);
 
     const purchasedEmailSet = await getSqeBundlePurchaserEmailSet(adminDb, emails);
+    const progressMap = await buildStudentProgressMap(
+      adminDb,
+      users.map((user) => user.uid),
+    );
 
     const rows = users.map((user) => {
       const email = user.email ? String(user.email).toLowerCase() : "";
@@ -50,6 +55,7 @@ export async function GET(request: NextRequest) {
         accessEnabledRaw,
         /** Matches portal login: true if admin set accessEnabled, or eligible with access not explicitly false. */
         accessEnabled: adminGodmode || (eligible && raw !== false),
+        progress: progressMap.get(user.uid),
       };
     });
 
