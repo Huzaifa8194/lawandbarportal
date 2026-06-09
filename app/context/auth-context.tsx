@@ -2,8 +2,12 @@
 
 import {
   User,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -36,6 +40,8 @@ type AuthContextType = {
   portalAccessReason: string | undefined;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<SignInResult>;
+  signInWithGoogle: () => Promise<SignInResult | "redirect">;
+  processOAuthRedirectResult: () => Promise<SignInResult | null>;
   signOut: () => Promise<void>;
   redeemAccessCode: (code: string) => Promise<void>;
 };
@@ -70,6 +76,31 @@ function clearSessionCookies() {
   document.cookie = "lb_session=; path=/; max-age=0; samesite=lax";
   document.cookie = "lb_admin=; path=/; max-age=0; samesite=lax";
   document.cookie = "lb_access=; path=/; max-age=0; samesite=lax";
+}
+
+function createGoogleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
+
+function isPopupBlockedError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "auth/popup-blocked"
+  );
+}
+
+/** `getRedirectResult` may only be consumed once per redirect; guard for React Strict Mode. */
+let pendingRedirectResult: ReturnType<typeof getRedirectResult> | null = null;
+
+function consumeOAuthRedirectResult() {
+  if (!pendingRedirectResult) {
+    pendingRedirectResult = getRedirectResult(auth);
+  }
+  return pendingRedirectResult;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -110,15 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({
-      user,
-      isAdmin,
-      accessEnabled,
-      portalAccessReason,
-      loading,
-      signIn: async (email: string, password: string): Promise<SignInResult> => {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        const access = await fetchPortalAccess(cred.user);
+    () => {
+      const resolveSignInAccess = async (signedInUser: User): Promise<SignInResult> => {
+        const access = await fetchPortalAccess(signedInUser);
         if (access.allowed) {
           applySessionCookies(true, Boolean(access.isAdmin));
           return "ok";
@@ -132,6 +157,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         await firebaseSignOut(auth);
         throw new PortalAccessDeniedError(access.reason);
+      };
+
+      return {
+      user,
+      isAdmin,
+      accessEnabled,
+      portalAccessReason,
+      loading,
+      signIn: async (email: string, password: string): Promise<SignInResult> => {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        return resolveSignInAccess(cred.user);
+      },
+      signInWithGoogle: async (): Promise<SignInResult | "redirect"> => {
+        const provider = createGoogleProvider();
+        try {
+          const cred = await signInWithPopup(auth, provider);
+          return resolveSignInAccess(cred.user);
+        } catch (error) {
+          if (isPopupBlockedError(error)) {
+            await signInWithRedirect(auth, provider);
+            return "redirect";
+          }
+          throw error;
+        }
+      },
+      processOAuthRedirectResult: async (): Promise<SignInResult | null> => {
+        const result = await consumeOAuthRedirectResult();
+        if (!result?.user) {
+          return null;
+        }
+        return resolveSignInAccess(result.user);
       },
       signOut: async () => {
         await firebaseSignOut(auth);
@@ -160,7 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPortalAccessReason(access.allowed ? undefined : access.reason);
         applySessionCookies(access.allowed, Boolean(access.isAdmin));
       },
-    }),
+    };
+    },
     [accessEnabled, isAdmin, loading, portalAccessReason, user],
   );
 
