@@ -10,6 +10,7 @@ const adminSections = [
   { href: "/admin/videos", title: "Videos", text: "Upload and publish video lessons for students." },
   { href: "/admin/mcqs", title: "MCQs", text: "Author 5-option questions with explanations." },
   { href: "/admin/mocks", title: "Mock Exams", text: "Group MCQs into exam and practice sets." },
+  { href: "/admin/updates", title: "Updates", text: "Publish formatted announcements and news for students." },
 ];
 
 export default function AdminPage() {

@@ -9,7 +9,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { PORTAL_BOOKS_COLLECTION } from "@/lib/portal-collections";
+import { PORTAL_BOOKS_COLLECTION, PORTAL_UPDATES_COLLECTION } from "@/lib/portal-collections";
 import {
   type LegacyExamDoc,
   legacyExamDocToMockExam,
@@ -24,6 +24,7 @@ import type {
   MockExam,
   Subject,
   UserProfile,
+  PortalUpdate,
   VideoLesson,
 } from "@/lib/types/admin";
 
@@ -70,6 +71,20 @@ export async function listBooks(): Promise<Book[]> {
 export async function listAudios(): Promise<AudioLesson[]> {
   const rows = await listCollection<AudioLesson>("audios");
   return rows.map((row) => ({ ...row, updatedAt: normalizeDate(row.updatedAt) }));
+}
+
+export async function listUpdates(): Promise<PortalUpdate[]> {
+  const snapshot = await getDocs(
+    query(collection(db, PORTAL_UPDATES_COLLECTION), orderBy("updatedAt", "desc")),
+  );
+  return snapshot.docs.map((item) => {
+    const row = { ...item.data(), id: item.id } as PortalUpdate;
+    return {
+      ...row,
+      createdAt: normalizeDate(row.createdAt),
+      updatedAt: normalizeDate(row.updatedAt),
+    };
+  });
 }
 
 export async function listVideos(): Promise<VideoLesson[]> {

@@ -88,6 +88,7 @@ function pageLabel(pathname: string) {
   if (pathname.startsWith("/audios/")) return "Audio Workspace";
   if (pathname.startsWith("/mocks")) return "Mock Exams";
   if (pathname.startsWith("/progress")) return "Progress";
+  if (pathname.startsWith("/updates")) return "Updates";
   return "User Portal";
 }
 

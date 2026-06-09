@@ -3,3 +3,4 @@
  * so student content never syncs to public `books` (or other) collections.
  */
 export const PORTAL_BOOKS_COLLECTION = "portal_books";
+export const PORTAL_UPDATES_COLLECTION = "portal_updates";

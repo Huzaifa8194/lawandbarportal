@@ -148,6 +148,21 @@ export type AccessCode = {
   usedAt?: string;
 };
 
+export type PortalUpdate = {
+  id: string;
+  title: string;
+  excerpt?: string;
+  /** Sanitized HTML body from the admin rich-text editor. */
+  content: string;
+  coverImageUrl?: string;
+  coverImagePath?: string;
+  /** Storage paths for inline and cover images — used for cleanup on delete. */
+  imagePaths?: string[];
+  published: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Attempt = {
   id: string;
   userId: string;

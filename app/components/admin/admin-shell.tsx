@@ -12,6 +12,7 @@ const items = [
   { href: "/admin/videos", label: "Videos" },
   { href: "/admin/mcqs", label: "MCQs" },
   { href: "/admin/mocks", label: "Mocks" },
+  { href: "/admin/updates", label: "Updates" },
 ];
 
 export default function AdminShell({

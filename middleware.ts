@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const protectedPaths = ["/", "/subjects", "/mocks", "/progress", "/search", "/admin"];
+const protectedPaths = ["/", "/subjects", "/mocks", "/progress", "/updates", "/search", "/admin"];
 const adminPath = "/admin";
 
 function isProtectedPath(pathname: string) {
