@@ -149,11 +149,10 @@ export default function MocksPage() {
 
   const normalizedQuery = query.trim().toLowerCase();
 
-  const { flk1Mocks, flk2Mocks, freeMocks } = useMemo(() => {
+  const { flk1Mocks, flk2Mocks } = useMemo(() => {
     const flk1 = mocks.filter((m) => m.track === "FLK 1");
     const flk2 = mocks.filter((m) => m.track === "FLK 2");
-    const free = mocks.filter((m) => m.track === "Free");
-    return { flk1Mocks: flk1, flk2Mocks: flk2, freeMocks: free };
+    return { flk1Mocks: flk1, flk2Mocks: flk2 };
   }, [mocks]);
 
   const searchHits = useMemo(() => {
@@ -282,22 +281,7 @@ export default function MocksPage() {
             ) : null}
           </div>
 
-          {freeMocks.length > 0 ? (
-            <section className="mt-10">
-              <h2 className="text-lg font-semibold text-slate-900">Free mock exams</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Ungrouped mocks (no FLK1/FLK2 tag on the main website) — open access when no extra purchase is
-                required.
-              </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {freeMocks.map((mock) => (
-                  <MockCard key={mock.id} mock={mock} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {!loading && flk1Mocks.length === 0 && flk2Mocks.length === 0 && freeMocks.length === 0 ? (
+          {!loading && flk1Mocks.length === 0 && flk2Mocks.length === 0 ? (
             <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
               No mock exams are available yet. Sign in to see legacy mocks you have access to.
             </div>

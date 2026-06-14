@@ -59,7 +59,11 @@ export function usePortalLiveData(options?: PortalLiveOptions) {
         setBooks(booksResp.filter((item) => item.published));
         setAudios(audiosResp.filter((item) => item.published));
         setMcqs(mcqsResp.filter((item) => item.published));
-        setMocks(mocksResp.filter((item) => item.published));
+        setMocks(
+          mocksResp.filter(
+            (item) => item.published && (item.track === "FLK 1" || item.track === "FLK 2"),
+          ),
+        );
         setVideos(videosResp.filter((item) => item.published));
       } finally {
         if (mounted) setLoading(false);
