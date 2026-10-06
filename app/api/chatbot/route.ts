@@ -12,7 +12,7 @@ type ChatRequestBody = {
 };
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "llama3-70b-8192";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 
 const SQE_BASE_PROMPT = `You are an expert SQE (Solicitors Qualifying Examination) study partner for Law & Bar. You have deep knowledge of English & Welsh law covering all SQE1 and SQE2 topics.
 
