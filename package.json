@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:flashcards": "node --test tests/flashcards.test.cjs"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",

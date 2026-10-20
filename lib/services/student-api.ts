@@ -1,6 +1,7 @@
 "use client";
 
 import { auth } from "@/lib/firebase";
+import type { FlashcardDeck } from "@/lib/flashcards";
 import type { Mcq, MockExam } from "@/lib/types/admin";
 import type { PaginatedAttemptsResponse, StudentAttempt } from "@/lib/types/student";
 
@@ -26,6 +27,8 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
 }
 
 export const studentApi = {
+  listFlashcards: () => request<FlashcardDeck[]>("/api/student/flashcards"),
+  getFlashcards: (id: string) => request<FlashcardDeck>(`/api/student/flashcards?id=${encodeURIComponent(id)}`),
   listAttempts: (params?: { page?: number; pageSize?: number }) => {
     const sp = new URLSearchParams();
     if (params?.page != null) sp.set("page", String(params.page));

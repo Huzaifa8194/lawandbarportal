@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { usePortalLiveData } from "../lib/use-portal-live";
+import { auth } from "@/lib/firebase";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -77,6 +78,7 @@ function pageLabel(pathname: string) {
   if (pathname === "/subjects") return "Subjects";
   if (pathname === "/books") return "Books";
   if (pathname === "/audios") return "Audios";
+  if (pathname === "/flashcards") return "Q&A Flashcards";
   if (pathname.startsWith("/subjects/flk1")) return "FLK 1 Subjects";
   if (pathname.startsWith("/subjects/flk2")) return "FLK 2 Subjects";
   if (pathname.startsWith("/books/flk1")) return "FLK 1 Books";
@@ -186,9 +188,12 @@ export default function StudentAssistant({
     setLoading(true);
 
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please sign in again to use the study assistant.");
       const response = await fetch("/api/chatbot", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(35000),
         body: JSON.stringify({
           messages: nextMessages,
           context,
@@ -294,6 +299,7 @@ export default function StudentAssistant({
                 <button
                   key={mode.id}
                   type="button"
+                  disabled={loading}
                   onClick={() => selectMode(mode)}
                   className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                     activeMode.id === mode.id

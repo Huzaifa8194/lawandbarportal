@@ -3,6 +3,7 @@ import AdminGuard from "../components/admin/admin-guard";
 import AdminShell from "../components/admin/admin-shell";
 
 const adminSections = [
+  { href: "/admin/flashcards", title: "Q&A Flashcards", text: "Add individual cards or paste hundreds of Q&As, review and publish by subject and topic." },
   { href: "/admin/students", title: "Students & Access", text: "Manage activation and access control." },
   { href: "/admin/subjects", title: "Subjects", text: "Control FLK structure and subject ordering." },
   { href: "/admin/books", title: "Books", text: "Upload and assign FLK subject PDFs." },

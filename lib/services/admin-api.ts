@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import type { User } from "firebase/auth";
 import type { AdminMcqListResponse, Mcq, StudentAccessDebugResponse } from "@/lib/types/admin";
 import { auth } from "@/lib/firebase";
+import type { FlashcardDeck } from "@/lib/flashcards";
 
 /**
  * `auth.currentUser` is often null for a tick after mount while Firebase restores
@@ -60,6 +61,10 @@ async function request<T>(url: string, method = "GET", body?: unknown): Promise<
 }
 
 export const adminApi = {
+  listFlashcards: () => request<FlashcardDeck[]>("/api/admin/flashcards"),
+  getFlashcards: (id: string) => request<FlashcardDeck>(`/api/admin/flashcards?id=${encodeURIComponent(id)}`),
+  saveFlashcards: (payload: unknown) => request("/api/admin/flashcards", "POST", payload),
+  deleteFlashcards: (id: string) => request(`/api/admin/flashcards?id=${encodeURIComponent(id)}`, "DELETE"),
   listStudents: () => request("/api/admin/students"),
   getStudentAccessDebug: (uid: string) => request<StudentAccessDebugResponse>(`/api/admin/students/${uid}/access-debug`),
   updateStudentAccess: (uid: string, accessEnabled: boolean) =>

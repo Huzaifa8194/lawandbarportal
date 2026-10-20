@@ -100,6 +100,7 @@ export default function Home() {
           <p className="mt-2 max-w-2xl text-base text-[#121f1d]/65 sm:text-lg">
             Continue your SQE preparation journey.
           </p>
+          <Link href="/flashcards" className="mt-4 inline-flex rounded-lg bg-[#0d4a42] px-4 py-2 text-sm font-medium text-white">Study Q&A flashcards</Link>
           <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <label className="text-sm font-medium text-slate-700" htmlFor="dashboard-search">
               Search from dashboard

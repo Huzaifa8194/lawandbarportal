@@ -11,6 +11,7 @@ const items = [
   { href: "/admin/audios", label: "Audios" },
   { href: "/admin/videos", label: "Videos" },
   { href: "/admin/mcqs", label: "MCQs" },
+  { href: "/admin/flashcards", label: "Q&A Flashcards" },
   { href: "/admin/mocks", label: "Mocks" },
   { href: "/admin/updates", label: "Updates" },
 ];

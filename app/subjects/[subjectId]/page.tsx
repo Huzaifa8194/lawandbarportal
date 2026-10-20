@@ -444,6 +444,7 @@ export default function SubjectWorkspacePage() {
         </div>
 
         {/* Book switcher (when multiple books) */}
+        {subject && <Link href={`/flashcards?subject=${encodeURIComponent(subject.id)}`} className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10">Q&A cards</Link>}
         {!audioOnlyMode && booksForSubject.length > 1 && (
           <select
             value={selectedBookId}
