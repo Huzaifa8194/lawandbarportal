@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
-import { FLASHCARD_COLLECTION, MAX_CARDS, type Flashcard } from "@/lib/flashcards";
+import { FLASHCARD_COLLECTION, MAX_CARDS, normalizeFlashcard } from "@/lib/flashcards";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,12 +32,14 @@ export async function POST(request: NextRequest) {
     const subjectData = subject.data();
     if (!subjectData || !["FLK 1", "FLK 2"].includes(subjectData.track)) throw new Error("Choose an existing FLK subject.");
     const seen = new Set<string>();
-    const cards = body.cards.map((card: Flashcard) => {
-      if (!card || typeof card.question !== "string" || typeof card.answer !== "string" || card.question.length > 5000 || card.answer.length > 20000 || (card.reference && (typeof card.reference !== "string" || card.reference.length > 2000))) throw new Error("Invalid card or text is too long.");
-      const question = card.question.trim(), answer = card.answer.trim(), key = question.toLowerCase().replace(/\s+/g, " ");
-      if (!question || !answer || seen.has(key)) throw new Error("Every card needs a unique question and a non-empty answer.");
+    const cards = body.cards.map((value: unknown, index: number) => {
+      let card;
+      try { card = normalizeFlashcard(value); }
+      catch (error) { throw new Error(`Card ${index + 1}: ${error instanceof Error ? error.message : "Invalid card"}`); }
+      const key = card.question.toLowerCase().replace(/\s+/g, " ");
+      if (seen.has(key)) throw new Error(`Card ${index + 1}: duplicate question.`);
       seen.add(key);
-      return { question, answer, reference: text(card.reference, 2000) };
+      return card;
     });
     const collection = adminDb.collection(FLASHCARD_COLLECTION);
     const ref = body.id ? collection.doc(body.id) : collection.doc();

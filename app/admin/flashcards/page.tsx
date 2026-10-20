@@ -3,16 +3,23 @@ import { useEffect, useState } from "react";
 import AdminGuard from "@/app/components/admin/admin-guard";
 import AdminShell from "@/app/components/admin/admin-shell";
 import { adminApi } from "@/lib/services/admin-api";
-import { parseFlashcards, type Flashcard, type FlashcardDeck } from "@/lib/flashcards";
+import { normalizeFlashcard, parseFlashcards, type Flashcard, type FlashcardDeck, type FlashcardType } from "@/lib/flashcards";
+import FlashcardEditor from "@/app/components/admin/flashcard-editor";
 import type { Subject } from "@/lib/types/admin";
 
 const empty = { id: "", title: "", subjectId: "", topic: "", published: false };
 const examples = { labels: "Q: Paste your first question here\nA: Paste the answer here.\nKeep paragraphs and lists on separate lines.\nReference: Optional statute or case citation\n\nQ: Paste your next question here\nA: Paste the next answer here.", tabs: "Question\tAnswer\tOptional legal reference", separator: "First question\n===\nFirst answer, including paragraphs or lists\n---\nNext question\n===\nNext answer" };
+const mcqExamples = {
+  labels: "Q: Paste your question here\nA) First option\nB) Second option\nC) Third option\nD) Fourth option\nE) Fifth option\nCorrect: C\nExplanation: Optional explanation of the correct answer\nReference: Optional statute or case\n\nQ: Next question\nA) First option\nB) Second option\nCorrect: A",
+  tabs: "Question\tOption A\tOption B\tOption C\tOption D\tOption E\tC\tOptional explanation\tOptional reference",
+};
 const input = "w-full rounded-lg border border-slate-300 bg-white p-3 text-sm";
 export default function FlashcardAdmin() {
   const [subjects, setSubjects] = useState<Subject[]>([]), [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [form, setForm] = useState(empty), [cards, setCards] = useState<Flashcard[]>([]);
   const [mode, setMode] = useState("bulk"), [format, setFormat] = useState<keyof typeof examples>("labels"), [source, setSource] = useState("");
+  const [bulkType, setBulkType] = useState<FlashcardType>("free-text");
+  const pasteExample = bulkType === "mcq" ? mcqExamples[format === "tabs" ? "tabs" : "labels"] : examples[format];
   const [single, setSingle] = useState<Flashcard>({ question: "", answer: "", reference: "" });
   const [errors, setErrors] = useState<string[]>([]), [message, setMessage] = useState(""), [busy, setBusy] = useState(false), [search, setSearch] = useState("");
   const [reviewPage, setReviewPage] = useState(0);
@@ -26,12 +33,17 @@ export default function FlashcardAdmin() {
   const load = async () => { const [s, d] = await Promise.all([adminApi.listSubjects(), adminApi.listFlashcards()]); setSubjects(s as Subject[]); setDecks(d); };
   useEffect(() => { load().catch(e => setMessage(e.message)); }, []);
   const preview = () => {
-    const result = parseFlashcards(source, format); setErrors(result.errors);
+    const result = parseFlashcards(source, format, bulkType); setErrors(result.errors);
     if (!result.errors.length) { setCards(previous => [...previous, ...result.cards]); setSource(""); setMessage(`${result.cards.length} cards added to review. Nothing has been published yet.`); }
   };
   const save = async () => {
     setBusy(true); setMessage("");
-    try { await adminApi.saveFlashcards({ ...form, cards }); setForm(empty); setCards([]); await load(); setMessage("Deck saved."); }
+    try {
+      const validated = cards.map((card, i) => {
+        try { return normalizeFlashcard(card); }
+        catch (error) { throw new Error(`Card ${i + 1}: ${error instanceof Error ? error.message : "Invalid card"}`); }
+      });
+      await adminApi.saveFlashcards({ ...form, cards: validated }); setForm(empty); setCards([]); await load(); setMessage("Deck saved."); }
     catch (e) { setMessage(e instanceof Error ? e.message : "Save failed"); } finally { setBusy(false); }
   };
   const edit = async (id: string) => {
@@ -52,13 +64,22 @@ export default function FlashcardAdmin() {
       </div>
       <div className="flex gap-2 border-t pt-5">{[ ["bulk", "Paste many Q&As"], ["single", "Add individually"] ].map(([value, label]) => <button key={value} aria-pressed={mode === value} onClick={() => setMode(value)} className={`rounded-lg px-4 py-2 text-sm ${mode === value ? "bg-slate-900 text-white" : "bg-slate-100"}`}>{label}</button>)}</div>
       {mode === "bulk" ? <div className="space-y-3">
-        <label className="block text-sm">Paste format<select className={input} value={format} onChange={e => { setFormat(e.target.value as keyof typeof examples); setErrors([]); }}><option value="labels">Q: / A: labels (multiline answers)</option><option value="tabs">Spreadsheet columns (question, answer, reference)</option><option value="separator">=== between sides, --- between cards</option></select></label>
-        <details className="text-sm text-slate-600"><summary className="cursor-pointer">Formatting guide and example</summary><p className="my-2">Labels must start a new line. Reference: or Law: adds an optional citation; citations are stored as supplied, not legally verified. For tables, copy 2–3 columns without headers. Formatting is plain text: line breaks and lists are preserved; HTML is never executed.</p><pre className="overflow-auto rounded-lg bg-slate-50 p-3 whitespace-pre-wrap">{examples[format]}</pre></details>
-        <label className="block text-sm">Questions and answers<textarea className={`${input} mt-1 min-h-64 font-mono`} value={source} maxLength={700000} onChange={e => setSource(e.target.value)} placeholder={examples[format]} /></label>
+        <label className="block text-sm">Question type for this paste<select className={input} value={bulkType} onChange={e => { setBulkType(e.target.value as FlashcardType); if (e.target.value === "mcq" && format === "separator") setFormat("labels"); setErrors([]); }}><option value="free-text">Free text</option><option value="mcq">MCQ</option></select></label>
+        <p className="text-sm text-slate-500">You can add both types to the same deck by importing each type separately.</p>
+        <label className="block text-sm">Paste format<select className={input} value={format} onChange={e => { setFormat(e.target.value as keyof typeof examples); setErrors([]); }}><option value="labels">Q: labels (multiline text)</option><option value="tabs">Spreadsheet columns</option>{bulkType === "free-text" && <option value="separator">=== between sides, --- between cards</option>}</select></label>
+        <details className="text-sm text-slate-600"><summary className="cursor-pointer">Formatting guide and example</summary><p className="my-2">Labels must start a new line. Reference: or Law: adds an optional citation; citations are stored as supplied, not legally verified. For tables, copy 2–3 columns without headers. Formatting is plain text: line breaks and lists are preserved; HTML is never executed.</p>{bulkType === "mcq" && <p className="my-2">For MCQs, use A) to E) for options and Correct: followed by one letter. Add Explanation: and Reference: if needed. For spreadsheets, use columns: Question, A, B, C, D, E, Correct, Explanation, Reference. Keep all five option columns; leave unused trailing options blank. Explanation and Reference are optional. Omit headers.</p>}<pre className="overflow-auto rounded-lg bg-slate-50 p-3 whitespace-pre-wrap">{pasteExample}</pre></details>
+        <label className="block text-sm">Questions and answers<textarea className={`${input} mt-1 min-h-64 font-mono`} value={source} maxLength={700000} onChange={e => setSource(e.target.value)} placeholder={pasteExample} /></label>
         <button disabled={!source.trim() || busy} onClick={preview} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">Parse and add to review</button>
         {errors.length > 0 && <div role="alert" className="max-h-48 overflow-auto rounded-lg bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Fix these before importing. No cards from this paste were added.</p>{errors.map((error, i) => <p key={i}>{error}</p>)}</div>}
-      </div> : <div className="space-y-3">{(["question", "answer", "reference"] as const).map(key => <label key={key} className="block text-sm capitalize">{key}{key === "reference" ? " (optional statute / case)" : ""}<textarea className={input} rows={key === "answer" ? 5 : 2} value={single[key]} onChange={e => setSingle({ ...single, [key]: e.target.value })} /></label>)}<button disabled={!single.question.trim() || !single.answer.trim()} onClick={() => { setCards([...cards, { ...single }]); setSingle({ question: "", answer: "", reference: "" }); }} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">Add to review</button></div>}
-      <div className="border-t pt-5"><h3 className="font-semibold">Review cards ({cards.length} / 500)</h3>{cards.length > 10 && <div className="my-3 flex items-center gap-4 text-sm"><button disabled={currentReviewPage === 0} onClick={() => setReviewPage(currentReviewPage - 1)} className="underline disabled:opacity-30">Previous</button><span>Page {currentReviewPage + 1} of {Math.ceil(cards.length / 10)}</span><button disabled={(currentReviewPage + 1) * 10 >= cards.length} onClick={() => setReviewPage(currentReviewPage + 1)} className="underline disabled:opacity-30">Next</button></div>}<p className="mt-1 text-sm text-slate-500">Edit any text below before saving. Blank answers and duplicate questions block saving.</p><div className="mt-4 max-h-[600px] space-y-4 overflow-auto">{cards.map((card, i) => ({card, i})).slice(currentReviewPage * 10, currentReviewPage * 10 + 10).map(({card, i}) => <article key={i} className="rounded-xl border border-slate-200 p-4"><div className="mb-3 flex justify-between text-sm"><strong>Card {i + 1}</strong><button onClick={() => setCards(cards.filter((_, index) => index !== i))} className="text-red-700">Remove</button></div>{(["question", "answer", "reference"] as const).map(key => <label key={key} className="mb-2 block text-sm capitalize">{key}<textarea className={input} rows={key === "answer" ? 4 : 2} value={card[key]} onChange={e => setCards(cards.map((c, index) => index === i ? { ...c, [key]: e.target.value } : c))} /></label>)}</article>)}</div></div>
+      </div> : <div className="space-y-3">
+        <FlashcardEditor value={single} onChange={setSingle} />
+        <button disabled={!single.question.trim()} onClick={() => {
+          try { const card = normalizeFlashcard(single); setCards([...cards, card]); setSingle({ type: single.type, question: "", answer: "", reference: "", ...(single.type === "mcq" ? { options: ["", "", "", "", ""], correctOption: -1 } : {}) }); setMessage("Card added to review."); }
+          catch (error) { setMessage(error instanceof Error ? error.message : "Invalid card"); }
+        }} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">Add to review</button>
+      </div>}
+
+      <div className="border-t pt-5"><h3 className="font-semibold">Review cards ({cards.length} / 500)</h3>{cards.length > 10 && <div className="my-3 flex items-center gap-4 text-sm"><button disabled={currentReviewPage === 0} onClick={() => setReviewPage(currentReviewPage - 1)} className="underline disabled:opacity-30">Previous</button><span>Page {currentReviewPage + 1} of {Math.ceil(cards.length / 10)}</span><button disabled={(currentReviewPage + 1) * 10 >= cards.length} onClick={() => setReviewPage(currentReviewPage + 1)} className="underline disabled:opacity-30">Next</button></div>}<p className="mt-1 text-sm text-slate-500">Edit any text below before saving. Free-text cards need an answer. MCQs need distinct options and one correct answer. Duplicate questions block saving.</p><div className="mt-4 max-h-[600px] space-y-4 overflow-auto">{cards.map((card, i) => ({card, i})).slice(currentReviewPage * 10, currentReviewPage * 10 + 10).map(({card, i}) => <article key={i} className="rounded-xl border border-slate-200 p-4"><div className="mb-3 flex justify-between text-sm"><strong>Card {i + 1}</strong><button onClick={() => setCards(cards.filter((_, index) => index !== i))} className="text-red-700">Remove</button></div><FlashcardEditor value={card} onChange={updated => setCards(cards.map((c, index) => index === i ? updated : c))} /></article>)}</div></div>
       {source.trim() && <p className="text-sm text-amber-800">There is unparsed text. Add it to review or clear it before saving.</p>}
       <button onClick={save} disabled={busy || !cards.length || cards.length > 500 || !form.title.trim() || !form.subjectId || !form.topic.trim() || !!source.trim()} className="rounded-lg bg-emerald-800 px-5 py-3 font-medium text-white disabled:opacity-40">{busy ? "Working…" : form.published ? "Save and publish deck" : "Save draft deck"}</button>
     </fieldset></section>
