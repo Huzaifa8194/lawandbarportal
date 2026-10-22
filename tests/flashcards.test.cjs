@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 function load(file, mocks = {}, globals = {}) {
   const result = { exports: {} };
-  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const code = ts.transpileModule(new TextDecoder('utf-8', {fatal:true}).decode(fs.readFileSync(file)), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(code, { exports: result.exports, module: result, require: name => { if (name in mocks) return mocks[name]; throw new Error(`Unexpected import ${name}`); }, Buffer, AbortSignal, TextEncoder, process: { env: {} }, ...globals }, { filename: file });
   return result.exports;
 }

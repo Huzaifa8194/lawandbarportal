@@ -6,7 +6,7 @@ const input = "mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-
 
 function FieldLength({ value, limit }: { value: string; limit: number }) {
   const over = value.length > limit;
-  return <span className={`mt-1 block text-xs ${over ? "font-semibold text-red-700" : value.length > limit * .9 ? "text-amber-800" : "text-slate-500"}`} aria-live="polite">{value.length.toLocaleString("en-US")} / {limit.toLocaleString("en-US")} characters{over ? ` · Remove ${(value.length - limit).toLocaleString("en-US")} characters before saving.` : " (including spaces and line breaks)"}</span>;
+  return <span className={`mt-1 block text-xs ${over ? "font-semibold text-red-700" : value.length > limit * .9 ? "text-amber-800" : "text-slate-500"}`} aria-live="polite">{value.length.toLocaleString("en-US")} / {limit.toLocaleString("en-US")} characters{over ? ` Â· Remove ${(value.length - limit).toLocaleString("en-US")} characters before saving.` : " (including spaces and line breaks)"}</span>;
 }
 
 export default function FlashcardEditor({ value, onChange }: {
