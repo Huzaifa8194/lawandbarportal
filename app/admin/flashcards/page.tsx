@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import AdminGuard from "@/app/components/admin/admin-guard";
 import AdminShell from "@/app/components/admin/admin-shell";
 import { adminApi } from "@/lib/services/admin-api";
-import { normalizeFlashcard, parseFlashcards, type Flashcard, type FlashcardDeck, type FlashcardType } from "@/lib/flashcards";
+import { normalizeFlashcard, type Flashcard, type FlashcardDeck, type FlashcardType } from "@/lib/flashcards";
+import BulkFlashcardPaste from "@/app/components/admin/bulk-flashcard-paste";
 import FlashcardEditor from "@/app/components/admin/flashcard-editor";
 import type { Subject } from "@/lib/types/admin";
 
@@ -21,7 +22,7 @@ export default function FlashcardAdmin() {
   const [bulkType, setBulkType] = useState<FlashcardType>("free-text");
   const pasteExample = bulkType === "mcq" ? mcqExamples[format === "tabs" ? "tabs" : "labels"] : examples[format];
   const [single, setSingle] = useState<Flashcard>({ question: "", answer: "", reference: "" });
-  const [errors, setErrors] = useState<string[]>([]), [message, setMessage] = useState(""), [busy, setBusy] = useState(false), [search, setSearch] = useState("");
+  const [message, setMessage] = useState(""), [busy, setBusy] = useState(false), [search, setSearch] = useState("");
   const [reviewPage, setReviewPage] = useState(0);
   const currentReviewPage = Math.min(reviewPage, Math.max(0, Math.ceil(cards.length / 10) - 1));
   useEffect(() => {
@@ -32,10 +33,6 @@ export default function FlashcardAdmin() {
   }, [cards.length, source, form.title]);
   const load = async () => { const [s, d] = await Promise.all([adminApi.listSubjects(), adminApi.listFlashcards()]); setSubjects(s as Subject[]); setDecks(d); };
   useEffect(() => { load().catch(e => setMessage(e.message)); }, []);
-  const preview = () => {
-    const result = parseFlashcards(source, format, bulkType); setErrors(result.errors);
-    if (!result.errors.length) { setCards(previous => [...previous, ...result.cards]); setSource(""); setMessage(`${result.cards.length} cards added to review. Nothing has been published yet.`); }
-  };
   const save = async () => {
     setBusy(true); setMessage("");
     try {
@@ -49,13 +46,13 @@ export default function FlashcardAdmin() {
   const edit = async (id: string) => {
     if ((cards.length || source.trim() || form.title) && !confirm("Discard your current unsaved changes?")) return;
     setBusy(true);
-    try { const deck = await adminApi.getFlashcards(id); setForm({ id: deck.id, title: deck.title, subjectId: deck.subjectId, topic: deck.topic, published: deck.published }); setCards(deck.cards || []); setSource(""); setErrors([]); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    try { const deck = await adminApi.getFlashcards(id); setForm({ id: deck.id, title: deck.title, subjectId: deck.subjectId, topic: deck.topic, published: deck.published }); setCards(deck.cards || []); setSource(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
     catch(e) { setMessage(e instanceof Error ? e.message : "Load failed"); } finally { setBusy(false); }
   };
   return <AdminGuard><AdminShell title="Q&A flashcards" subtitle="Organise revision into FLK subjects, topics and decks. Paste up to 500 cards into each deck.">
     {message && <p role="status" className="rounded-lg border bg-white p-4 text-sm">{message}</p>}
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><fieldset disabled={busy} className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-semibold">{form.id ? "Edit deck" : "Create a deck"}</h3><button disabled={busy} onClick={() => { if (confirm("Discard unsaved changes and start a new deck?")) { setForm(empty); setCards([]); setSource(""); setErrors([]); } }} className="text-sm underline">New deck</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-semibold">{form.id ? "Edit deck" : "Create a deck"}</h3><button disabled={busy} onClick={() => { if (confirm("Discard unsaved changes and start a new deck?")) { setForm(empty); setCards([]); setSource(""); } }} className="text-sm underline">New deck</button></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm">Deck title<input className={input} value={form.title} maxLength={160} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Formation of a contract" /></label>
         <label className="space-y-1 text-sm">FLK subject<select className={input} value={form.subjectId} onChange={e => setForm({ ...form, subjectId: e.target.value })}><option value="">Choose subject</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.track} / {s.name}</option>)}</select></label>
@@ -64,13 +61,11 @@ export default function FlashcardAdmin() {
       </div>
       <div className="flex gap-2 border-t pt-5">{[ ["bulk", "Paste many Q&As"], ["single", "Add individually"] ].map(([value, label]) => <button key={value} aria-pressed={mode === value} onClick={() => setMode(value)} className={`rounded-lg px-4 py-2 text-sm ${mode === value ? "bg-slate-900 text-white" : "bg-slate-100"}`}>{label}</button>)}</div>
       {mode === "bulk" ? <div className="space-y-3">
-        <label className="block text-sm">Question type for this paste<select className={input} value={bulkType} onChange={e => { setBulkType(e.target.value as FlashcardType); if (e.target.value === "mcq" && format === "separator") setFormat("labels"); setErrors([]); }}><option value="free-text">Free text</option><option value="mcq">MCQ</option></select></label>
+        <label className="block text-sm">Question type for this paste<select className={input} value={bulkType} onChange={e => { setBulkType(e.target.value as FlashcardType); if (e.target.value === "mcq" && format === "separator") setFormat("labels"); }}><option value="free-text">Free text</option><option value="mcq">MCQ</option></select></label>
         <p className="text-sm text-slate-500">You can add both types to the same deck by importing each type separately.</p>
-        <label className="block text-sm">Paste format<select className={input} value={format} onChange={e => { setFormat(e.target.value as keyof typeof examples); setErrors([]); }}><option value="labels">Q: labels (multiline text)</option><option value="tabs">Spreadsheet columns</option>{bulkType === "free-text" && <option value="separator">=== between sides, --- between cards</option>}</select></label>
+        <label className="block text-sm">Paste format<select className={input} value={format} onChange={e => { setFormat(e.target.value as keyof typeof examples); }}><option value="labels">Q: labels (multiline text)</option><option value="tabs">Spreadsheet columns</option>{bulkType === "free-text" && <option value="separator">=== between sides, --- between cards</option>}</select></label>
         <details className="text-sm text-slate-600"><summary className="cursor-pointer">Formatting guide and example</summary><p className="my-2">Labels must start a new line. Reference: or Law: adds an optional citation; citations are stored as supplied, not legally verified. For tables, copy 2–3 columns without headers. Formatting is plain text: line breaks and lists are preserved; HTML is never executed.</p>{bulkType === "mcq" && <p className="my-2">For MCQs, use A) to E) for options and Correct: followed by one letter. Add Explanation: and Reference: if needed. For spreadsheets, use columns: Question, A, B, C, D, E, Correct, Explanation, Reference. Keep all five option columns; leave unused trailing options blank. Explanation and Reference are optional. Omit headers.</p>}<pre className="overflow-auto rounded-lg bg-slate-50 p-3 whitespace-pre-wrap">{pasteExample}</pre></details>
-        <label className="block text-sm">Questions and answers<textarea className={`${input} mt-1 min-h-64 font-mono`} value={source} maxLength={700000} onChange={e => setSource(e.target.value)} placeholder={pasteExample} /></label>
-        <button disabled={!source.trim() || busy} onClick={preview} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">Parse and add to review</button>
-        {errors.length > 0 && <div role="alert" className="max-h-48 overflow-auto rounded-lg bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Fix these before importing. No cards from this paste were added.</p>{errors.map((error, i) => <p key={i}>{error}</p>)}</div>}
+        <BulkFlashcardPaste source={source} onChange={setSource} format={format} type={bulkType} existing={cards} deck={form} placeholder={pasteExample} onImport={imported => { setCards(previous => [...previous, ...imported]); setSource(""); setMessage(`${imported.length} checked cards added to review. Nothing has been saved or published yet.`); }} />
       </div> : <div className="space-y-3">
         <FlashcardEditor value={single} onChange={setSingle} />
         <button disabled={!single.question.trim()} onClick={() => {

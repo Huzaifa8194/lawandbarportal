@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "../_lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
-import { FLASHCARD_COLLECTION, MAX_CARDS, normalizeFlashcard } from "@/lib/flashcards";
+import { FLASHCARD_COLLECTION, FLASHCARD_LIMITS, MAX_CARDS, normalizeFlashcard } from "@/lib/flashcards";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   try { admin = await verifyAdminRequest(request); } catch { return NextResponse.json({ error: "Admin access required" }, { status: 403 }); }
   try {
     const raw = await request.text();
-    if (Buffer.byteLength(raw) > 750000) return NextResponse.json({ error: "Deck is too large. Split it into smaller decks." }, { status: 400 });
+    if (Buffer.byteLength(raw) > FLASHCARD_LIMITS.deckBytes) return NextResponse.json({ error: "Deck is too large. Split it into smaller decks." }, { status: 400 });
     const body = JSON.parse(raw);
     const text = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
     const title = text(body.title, 160), topic = text(body.topic, 160), subjectId = text(body.subjectId, 128);

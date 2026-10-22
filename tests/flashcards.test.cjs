@@ -7,10 +7,11 @@ const ts = require('typescript');
 function load(file, mocks = {}, globals = {}) {
   const result = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(code, { exports: result.exports, module: result, require: name => { if (name in mocks) return mocks[name]; throw new Error(`Unexpected import ${name}`); }, Buffer, AbortSignal, process: { env: {} }, ...globals }, { filename: file });
+  vm.runInNewContext(code, { exports: result.exports, module: result, require: name => { if (name in mocks) return mocks[name]; throw new Error(`Unexpected import ${name}`); }, Buffer, AbortSignal, TextEncoder, process: { env: {} }, ...globals }, { filename: file });
   return result.exports;
 }
-const { parseFlashcards, FLASHCARD_COLLECTION, normalizeFlashcard } = load('lib/flashcards.ts');
+const flashcardLib = load('lib/flashcards.ts');
+const { parseFlashcards } = flashcardLib;
 test('label paste preserves paragraphs, lists and legal references', () => {
   const result = parseFlashcards('1. Question: First?\r\nAnswer: Paragraph one\r\n\r\n- First point\r\n- Second point\r\nLaw: Supplied reference\r\n\r\n2. Q: Second?\r\nA: Second answer', 'labels');
   assert.equal(result.errors.length, 0);
@@ -38,7 +39,7 @@ function routes({ allowed = true, published = true } = {}) {
   let saved;
   const db = { collection: name => ({ doc: function(id) { if (arguments.length && !id) throw new Error('Invalid document path'); return ({ id: id || 'new-deck', get: async () => name === 'subjects' ? { data: () => ({ name: 'Contract', track: 'FLK 1' }) } : { exists: true, id, data: () => ({ published, cards: [{ question: 'Q', answer: 'A' }] }) }, set: async data => { saved = data; } }); } }) };
   const verify = async () => { if (!allowed) throw new Error('Access denied'); return {uid: 'admin'}; };
-  const mocks = { 'next/server': next, '@/lib/firebase-admin': {adminDb: db}, '@/lib/flashcards': { FLASHCARD_COLLECTION, MAX_CARDS: 500, normalizeFlashcard }, '../_lib/auth': {verifyAdminRequest: verify, verifyStudentRequest: verify}, '../_lib/http-error': {studentRouteErrorResponse: () => next.NextResponse.json({error: 'Denied'}, {status: 403})} };
+  const mocks = { 'next/server': next, '@/lib/firebase-admin': {adminDb: db}, '@/lib/flashcards': flashcardLib, '../_lib/auth': {verifyAdminRequest: verify, verifyStudentRequest: verify}, '../_lib/http-error': {studentRouteErrorResponse: () => next.NextResponse.json({error: 'Denied'}, {status: 403})} };
   return { admin: load('app/api/admin/flashcards/route.ts', mocks), student: load('app/api/student/flashcards/route.ts', mocks), saved: () => saved };
 }
 const valid = { title: 'Deck', topic: 'Topic', subjectId: 'contract', published: false, cards: [{question: 'Q', answer: 'A', reference: 'Reference'}] };
@@ -150,7 +151,7 @@ const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const jsxRuntime = require('react/jsx-runtime');
 const StudyCard = load('app/components/student/flashcard-study-card.tsx', {'react/jsx-runtime':jsxRuntime}).default;
-const Editor = load('app/components/admin/flashcard-editor.tsx', {'react/jsx-runtime':jsxRuntime}).default;
+const Editor = load('app/components/admin/flashcard-editor.tsx', {'react/jsx-runtime':jsxRuntime, '@/lib/flashcards':flashcardLib}).default;
 const renderCard = (card, revealed, selected) => renderToStaticMarkup(React.createElement(StudyCard, {card, revealed, selected, onSelect:()=>{}, onReveal:()=>{}}));
 test('MCQ study view requires a choice and hides answers until checked', () => {
   const pending = renderCard(mcqCard, false, null);
@@ -181,4 +182,86 @@ test('individual and review editor offers both types and correct-option controls
   assert.match(renderEditor(mcqCard), /Correct answer/);
   assert.match(renderEditor(mcqCard), /Option A/);
   assert.match(renderEditor(mcqCard), /Explanation \(optional\)/);
+});
+const pasteLib = load('lib/flashcard-paste-analysis.ts', {'./flashcards':flashcardLib});
+const { analyzeFlashcardPaste, pasteLineSelection } = pasteLib;
+test('live checks keep original line numbers through leading blanks, preambles and CRLF', () => {
+  const source = '\r\n\r\nIntroduction\r\n\r\nQ: First\r\nA: Answer\r\n\r\nQ: Missing answer';
+  const result = analyzeFlashcardPaste(source, 'labels', 'free-text');
+  assert.equal(result.ready, 1);
+  assert.equal(result.invalid, 2);
+  assert.equal(result.total, 2);
+  assert.equal(result.records[0].issues[0].line, 3);
+  assert.equal(result.records[1].startLine, 5);
+  assert.equal(result.records[2].issues[0].line, 8);
+  assert.equal(result.canImport, false);
+  const selection = pasteLineSelection(source, 8);
+  assert.equal(source.slice(selection.start, selection.end), 'Q: Missing answer');
+});
+test('live checks map spreadsheet and separator errors to source rows', () => {
+  const tabs = analyzeFlashcardPaste('\nQ1\tA1\n\nQ2\t', 'tabs', 'free-text');
+  assert.equal(tabs.records[1].issues[0].line, 4);
+  assert.equal(tabs.ready, 1);
+  const missingQuestion = analyzeFlashcardPaste('\tAnswer only', 'tabs', 'free-text');
+  assert.equal(missingQuestion.ready, 0);
+  assert.match(missingQuestion.records[0].issues[0].message, /question/i);
+  const separated = analyzeFlashcardPaste('\nFirst\n===\nAnswer\n---\nSecond without separator', 'separator', 'free-text');
+  assert.equal(separated.records[1].issues[0].line, 6);
+});
+test('live checks locate MCQ correct-answer and option errors', () => {
+  const source = '\nQ: Pick\nA) Alpha\nB) Beta\nCorrect: E';
+  const result = analyzeFlashcardPaste(source, 'labels', 'mcq');
+  assert.equal(result.ready, 0);
+  assert.equal(result.records[0].issues[0].line, 5);
+  const syntax = analyzeFlashcardPaste('Q: Pick\nA) Alpha\nC) Gamma\nCorrect: A', 'labels', 'mcq');
+  assert.ok(syntax.records[0].issues.some(issue => issue.line === 3 && /order/.test(issue.message)));
+});
+test('live checks identify duplicates within paste and against existing cards', () => {
+  const existing = [{question:'  Existing   question ',answer:'Answer',reference:''}];
+  const result = analyzeFlashcardPaste('Q: Existing question\nA: A\n\nQ: New question\nA: B\nQ: new question\nA: C', 'labels', 'free-text', existing);
+  assert.equal(result.ready, 1);
+  assert.equal(result.invalid, 2);
+  assert.match(result.records[0].issues[0].message, /existing deck card 1/);
+  assert.ok(result.records[2].issues.some(issue => /pasted card 2/.test(issue.message) && issue.line === 6));
+});
+test('live checks show all over-limit fields and exact character counts', () => {
+  const result = analyzeFlashcardPaste(`Q: ${'q'.repeat(5001)}\nA: ${'a'.repeat(20001)}\nReference: ${'r'.repeat(2001)}`, 'labels', 'free-text');
+  assert.equal(result.ready, 0);
+  for (const line of [1,2,3]) assert.ok(result.records[0].issues.some(issue => issue.line === line && /maximum/.test(issue.message)));
+  assert.equal(result.records[0].fields[1].text.length, 20001);
+});
+test('live checks enforce combined deck capacity, paste size and UTF-8 save bytes', () => {
+  const existing = Array.from({length:500}, (_, i) => ({question:`Existing ${i}`,answer:'A',reference:''}));
+  const capacity = analyzeFlashcardPaste('Q: New\nA: A', 'labels', 'free-text', existing);
+  assert.match(capacity.globalErrors[0], /501/);
+  assert.equal(capacity.canImport, false);
+  const huge = analyzeFlashcardPaste('x'.repeat(700001), 'labels', 'free-text');
+  assert.match(huge.globalErrors[0], /700,001/);
+  assert.match(huge.globalErrors[0], /not been cut off/);
+  const multiByte = Array.from({length:80}, (_, i) => `Q: Question ${i}\nA: ${'界'.repeat(4000)}`).join('\n');
+  const bytes = analyzeFlashcardPaste(multiByte, 'labels', 'free-text');
+  assert.equal(bytes.ready, 80);
+  assert.ok(bytes.deckBytes > 750000);
+  assert.equal(bytes.canImport, false);
+});
+test('500 valid cards stay ready, use original counts and match parser output', () => {
+  const source = Array.from({length:500}, (_, i) => `Q: Question ${i}\nA: Answer ${i}`).join('\n\n');
+  const result = analyzeFlashcardPaste(source, 'labels', 'free-text');
+  assert.equal(result.total, 500);
+  assert.equal(result.ready, 500);
+  assert.equal(result.invalid, 0);
+  assert.equal(result.canImport, true);
+  assert.equal(JSON.stringify(result.cards), JSON.stringify(parseFlashcards(source, 'labels').cards));
+});
+const BulkPaste = load('app/components/admin/bulk-flashcard-paste.tsx', {'react/jsx-runtime':jsxRuntime, react:React, '@/lib/flashcards':flashcardLib, '@/lib/flashcard-paste-analysis':pasteLib}).default;
+test('bulk UI renders live status, colored source lines, length counters and correction controls', () => {
+  const markup = renderToStaticMarkup(React.createElement(BulkPaste, {source:'Q: Good\nA: Answer\n\nQ: Missing',onChange:()=>{},format:'labels',type:'free-text',existing:[],deck:{title:'Deck'},placeholder:'Paste',onImport:()=>{}}));
+  assert.match(markup, /1 ready · 1 need attention/);
+  assert.match(markup, /Jump to first issue \(line 4\)/);
+  assert.match(markup, /Needs attention/);
+  assert.match(markup, /bg-emerald-50/);
+  assert.match(markup, /750,000/);
+  assert.match(markup, /20,000/);
+  assert.match(markup, /Add 1 checked card to review/);
+  assert.doesNotMatch(markup, /maxLength=/i);
 });

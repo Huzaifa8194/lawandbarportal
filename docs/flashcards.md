@@ -6,6 +6,16 @@ Students: open **Q&A Flashcards** (`/flashcards`), or use the link in a subject 
 
 For MCQs, select an option and click **Check answer**. The correct option, explanation and legal reference appear afterward. Choices lock after checking. Click **Next card** to record the result; incorrect questions join the missed-card review. MCQs require 2–5 non-empty, distinct options and exactly one correct answer. Explanations are optional. Older decks without a question type continue to behave as free text; no migration is needed.
 
+## Live feedback while pasting
+
+Bulk imports now check automatically as you type or paste. **Green / Ready** means a card parses successfully. **Red / Needs attention** identifies errors; **amber** marks other lines in a card that still has errors. Text labels and symbols accompany colors.
+
+The live panel shows ready/error counts, original source line numbers, remaining deck capacity, character counts for each detected field, and the combined save size in UTF-8 bytes. Choose **Needs attention** to filter the list, or **Jump to first issue**. Clicking an issue selects its original text in the paste box and shows its surrounding highlighted lines. Spreadsheet rows and leading blank lines retain their actual line numbers. Use **Preview the parsed card** to confirm how a ready card will be stored.
+
+Checks include duplicates within the paste and against cards already in the deck. Every issue must be fixed before **Add checked cards to review** is enabled; no partial import occurs. Oversized text stays intact so it can be shortened or split, rather than being silently truncated. Large results are paginated in groups of 10, and selecting an error jumps directly to that card. Individual and review fields also display live character counters.
+
+Checks validate formatting and structure, not legal accuracy. Saving/publishing remains a separate step.
+
 ## Paste formats
 
 **Q:/A: labels** (also accepts Question:, Answer:, Reference:, Ref: and Law:). Each label starts a new line. Answer paragraphs and lists keep their line breaks.

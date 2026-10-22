@@ -11,6 +11,7 @@ export type Flashcard = {
 export type FlashcardDeck = { id: string; title: string; subjectId: string; subjectName: string; track: "FLK 1" | "FLK 2"; topic: string; published: boolean; cardCount: number; updatedAt: string; cards?: Flashcard[] };
 export const FLASHCARD_COLLECTION = "portal_flashcard_decks";
 export const MAX_CARDS = 500;
+export const FLASHCARD_LIMITS = { question: 5000, answer: 20000, reference: 2000, option: 5000, paste: 700000, deckBytes: 750000 } as const;
 
 /** Shared by the API and import preview; rebuilds records without trusting extra fields. */
 export function normalizeFlashcard(value: unknown): Flashcard {
@@ -20,11 +21,12 @@ export function normalizeFlashcard(value: unknown): Flashcard {
   const read = (key: string, limit: number, optional = false) => {
     const text = card[key];
     if (optional && (text === undefined || text === "")) return "";
-    if (typeof text !== "string" || text.length > limit) throw new Error(`${key}: invalid text or size limit exceeded.`);
+    if (typeof text !== "string") throw new Error(`${key}: text is required.`);
+    if (text.length > limit) throw new Error(`${key}: ${text.length.toLocaleString("en-US")} characters; maximum ${limit.toLocaleString("en-US")}. Remove ${(text.length - limit).toLocaleString("en-US")} characters.`);
     return text.trim();
   };
   const type = card.type === "mcq" ? "mcq" : "free-text";
-  const question = read("question", 5000), answer = read("answer", 20000, type === "mcq"), reference = read("reference", 2000, true);
+  const question = read("question", FLASHCARD_LIMITS.question), answer = read("answer", FLASHCARD_LIMITS.answer, type === "mcq"), reference = read("reference", FLASHCARD_LIMITS.reference, true);
   if (!question) throw new Error("A question is required.");
   if (type === "free-text") {
     if (!answer) throw new Error("An answer is required for free-text cards.");
@@ -32,7 +34,7 @@ export function normalizeFlashcard(value: unknown): Flashcard {
   }
   if (!Array.isArray(card.options) || card.options.length < 2 || card.options.length > 5) throw new Error("MCQs need 2–5 options.");
   const options = card.options.map(option => {
-    if (typeof option !== "string" || !option.trim() || option.length > 5000) throw new Error("Each MCQ option needs text (maximum 5,000 characters).");
+    if (typeof option !== "string" || !option.trim() || option.length > FLASHCARD_LIMITS.option) throw new Error("Each MCQ option needs text (maximum 5,000 characters).");
     return option.trim();
   });
   if (new Set(options.map(option => option.toLowerCase().replace(/\s+/g, " "))).size !== options.length) throw new Error("MCQ options must be distinct.");
@@ -43,7 +45,7 @@ export function normalizeFlashcard(value: unknown): Flashcard {
 /** Plain text keeps paragraphs/lists without executing pasted HTML. */
 export function parseFlashcards(source: string, format: "labels" | "tabs" | "separator", type: FlashcardType = "free-text") {
   const cards: Flashcard[] = [], errors: string[] = [];
-  const text = source.replace(/\r\n?/g, "\n").trim();
+  const text = source.replace(/\r\n?/g, "\n");
   const add = (card: Flashcard, label: string) => {
     try { cards.push(normalizeFlashcard(card)); }
     catch (error) { errors.push(`${label}: ${error instanceof Error ? error.message : "Invalid card."}`); }
