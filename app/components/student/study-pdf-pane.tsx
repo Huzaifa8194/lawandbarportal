@@ -8,7 +8,10 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
 if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdf-worker",
+    import.meta.url,
+  ).toString();
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────

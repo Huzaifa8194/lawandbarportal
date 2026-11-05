@@ -196,30 +196,36 @@ export default function SubjectWorkspacePage() {
       setPdfLoading(true);
       setPdfLoadError(null);
       try {
-        let loaded = false;
         for (let attempt = 0; attempt < 3; attempt += 1) {
-          const token = await user.getIdToken(attempt > 0);
-          const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: controller.signal,
-            cache: "no-store",
-          });
-          if (response.ok) {
+          let retryable = true;
+          try {
+            const token = await user.getIdToken(attempt > 0);
+            const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(115_000)]),
+              cache: "no-store",
+            });
+            if (!response.ok) {
+              retryable = [401, 408, 429].includes(response.status) || response.status >= 500;
+              await response.body?.cancel();
+              throw new Error("PDF request failed");
+            }
             const blob = await response.blob();
+            if (await blob.slice(0, 5).text() !== "%PDF-") {
+              throw new Error("Invalid PDF response");
+            }
             if (cancelled) return;
             const nextUrl = URL.createObjectURL(blob);
             if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
             pdfBlobRef.current = nextUrl;
             setPdfBlobUrl(nextUrl);
-            loaded = true;
-            break;
+            return;
+          } catch (error) {
+            if (controller.signal.aborted) return;
+            if (!retryable || attempt === 2) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
+            if (controller.signal.aborted) return;
           }
-          if (attempt < 2) {
-            await new Promise((resolve) => setTimeout(resolve, 450 * (attempt + 1)));
-          }
-        }
-        if (!loaded && !cancelled) {
-          setPdfLoadError("PDF could not be loaded right now. Tap retry.");
         }
       } catch {
         if (!cancelled) {
