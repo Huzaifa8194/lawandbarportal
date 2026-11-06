@@ -158,3 +158,34 @@ test('legacy highlight positions migrate to PDF points without duplication', () 
   assert.equal(restoreViewerAnnotations(JSON.stringify(items), highlights, pages).length, 1);
   assert.equal(restoreViewerAnnotations(JSON.stringify(items), [], pages).length, 0);
 });
+
+test('native highlight and note data remains available to the study sidebar', () => {
+  const {viewerStudyItems} = load('lib/pdf-annotations.ts');
+  const data = viewerStudyItems(JSON.stringify([
+    {annotation: {id: 'highlight', type: 9, pageIndex: 2, contents: 'Saved passage', strokeColor: '#93c5fd'}},
+    {annotation: {id: 'note', type: 1, pageIndex: 2, contents: 'Saved comment'}},
+    {annotation: {id: 'portal-legacy-old', type: 9, pageIndex: 2, contents: 'Legacy'}}
+  ]));
+  assert.equal(data.highlights.length, 1);
+  assert.equal(data.highlights[0].color, 'blue');
+  assert.equal(data.highlights[0].page, 3);
+  assert.equal(data.notes[0].text, 'Saved comment');
+});
+test('annotation saves keep viewer JSON and existing notes and bookmarks together', async () => {
+  let saved;
+  class NextResponse extends Response { static json(data, options) {return new NextResponse(JSON.stringify(data), options);} }
+  const state = load('app/api/student/pdf/[bookId]/route.ts', {
+    'next/server': {NextResponse},
+    '../../_lib/auth': {verifyStudentRequest: async () => ({uid: 'student'})},
+    '@/lib/firebase-admin': {adminDb: {collection: () => ({doc: () => ({set: async data => {saved = data;}})})}},
+  });
+  const payload = {viewerAnnotationsJson: JSON.stringify([{annotation: {id: 'a', segmentRects: [{origin: {x: 1, y: 2}}]}}]), notes: [{text: 'existing note'}], bookmarks: [{page: 3}]};
+  const response = await state.PUT({json: async () => payload}, {params: Promise.resolve({bookId: 'book'})});
+  assert.equal(response.status, 200);
+  assert.equal(saved.viewerAnnotationsJson, payload.viewerAnnotationsJson);
+  assert.equal(saved.notes[0].text, 'existing note');
+  assert.equal(saved.bookmarks[0].page, 3);
+  assert.equal(saved.userId, 'student');
+  const invalid = await state.PUT({json: async () => ({viewerAnnotationsJson: '{bad'})}, {params: Promise.resolve({bookId: 'book'})});
+  assert.equal(invalid.status, 400);
+});

@@ -9,6 +9,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "test:pdf": "node --test tests/book-pdf.test.cjs",
+    "test:pdf:browser": "node tests/pdf-viewer-browser.cjs && node tests/pdf-viewer-browser.cjs --serve",
     "test:flashcards": "node --test tests/flashcards.test.cjs"
   },
   "dependencies": {

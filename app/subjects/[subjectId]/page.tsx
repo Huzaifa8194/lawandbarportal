@@ -104,7 +104,6 @@ export default function SubjectWorkspacePage() {
   const [saveRetryKey, setSaveRetryKey] = useState(0);
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const pdfBlobRef = useRef<string | null>(null);
-  const lastLoadedBookRef = useRef<string | null>(null);
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [showAudioPicker, setShowAudioPicker] = useState(false);
@@ -190,7 +189,6 @@ export default function SubjectWorkspacePage() {
           pdfBlobRef.current = null;
         }
         setPdfBlobUrl(null);
-        lastLoadedBookRef.current = null;
         return;
       }
       if (!user) return;
@@ -199,7 +197,6 @@ export default function SubjectWorkspacePage() {
         pdfBlobRef.current = null;
         setPdfBlobUrl(null);
       }
-      lastLoadedBookRef.current = relatedBookId;
 
       setPdfLoading(true);
       setPdfLoadError(null);

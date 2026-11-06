@@ -15,14 +15,15 @@ async function headers() {
   };
 }
 
-async function request<T>(url: string, method = "GET", body?: unknown): Promise<T> {
+async function request<T>(url: string, method = "GET", body?: unknown, timeoutMs?: number): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: await headers(),
     body: body ? JSON.stringify(body) : undefined,
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
   });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error || "Request failed");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.error || `Request failed (HTTP ${response.status})`);
   return payload as T;
 }
 
@@ -41,9 +42,9 @@ export const studentApi = {
   createAttempt: (payload: unknown) => request("/api/student/attempts", "POST", payload),
   getMockSession: (mockId: string) =>
     request<{ mock: MockExam; questions: Mcq[] }>(`/api/student/mocks/${encodeURIComponent(mockId)}`),
-  getPdfState: (bookId: string) => request(`/api/student/pdf/${bookId}`),
+  getPdfState: (bookId: string) => request(`/api/student/pdf/${bookId}`, "GET", undefined, 25_000),
   savePdfState: (bookId: string, payload: unknown) =>
-    request(`/api/student/pdf/${bookId}`, "PUT", payload),
+    request(`/api/student/pdf/${bookId}`, "PUT", payload, 25_000),
   getAudioState: (audioId: string) => request(`/api/student/audio/${audioId}`),
   saveAudioState: (audioId: string, payload: unknown) =>
     request(`/api/student/audio/${audioId}`, "PUT", payload),
