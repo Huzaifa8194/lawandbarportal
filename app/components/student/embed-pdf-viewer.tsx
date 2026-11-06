@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
+import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, ScrollStrategy, SpreadMode, ZoomMode, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
 import { PdfLoadError } from "@/lib/pdf-errors";
 import { restoreViewerAnnotations } from "@/lib/pdf-annotations";
 import type { PdfHighlight } from "@/lib/types/student";
@@ -52,9 +52,36 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     tabBar: "never",
     theme: { preference: "dark" },
     fonts: { ui: null, signature: null },
-    disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form"],
+    scroll: { defaultStrategy: ScrollStrategy.Horizontal, defaultPageGap: Math.max(window.innerWidth, window.screen.width) + 64, defaultBufferSize: 0 },
+    spread: { defaultSpreadMode: SpreadMode.None },
+    zoom: { defaultZoomLevel: ZoomMode.FitPage },
+    disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form", "scroll", "spread"],
     annotations: { annotationAuthor: "Student" },
   }), []);
+
+  const goToPage = useCallback((page: number) => {
+    const total = scrollRef.current?.getTotalPages() || latest.current.totalPages || 1;
+    const next = Math.min(total, Math.max(1, page));
+    scrollRef.current?.scrollToPage({ pageNumber: next, behavior: "instant" });
+    latest.current.onPageChange?.(next);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.composedPath().some((node) => node instanceof HTMLElement && (node.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName) || /^(menu|menuitem|listbox|option)$/.test(node.getAttribute("role") || "")))) return;
+      const current = scrollRef.current?.getCurrentPage() || latest.current.currentPage;
+      if (event.key === "ArrowRight" || event.key === "PageDown") goToPage(current + 1);
+      else if (event.key === "ArrowLeft" || event.key === "PageUp") goToPage(current - 1);
+      else if (event.key === "Home") goToPage(1);
+      else if (event.key === "End") goToPage(scrollRef.current?.getTotalPages() || current);
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loaded, goToPage]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -169,11 +196,22 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     </div>
     {annotationError && <p role="alert" className="bg-amber-950 p-3 text-xs text-amber-200">{annotationError}</p>}
     <div className="relative min-h-0 flex-1">
-      <PDFViewer config={config} onReady={onReady} style={{ width: "100%", height: "100%" }} />
+      <PDFViewer config={config} onReady={onReady} onInit={(container) => {
+        // Keep horizontal paging programmatic; vertical scrolling and the hand
+        // tool remain available when zooming. The gutter isolates each page.
+        const style = document.createElement("style");
+        style.textContent = 'div[style*="overflow: auto"] { overflow-x: hidden !important; }';
+        container.shadowRoot?.appendChild(style);
+      }} style={{ width: "100%", height: "100%" }} />
       {(!loaded || error) && <div className="absolute inset-0 z-30 flex bg-[#0b1110]">
         <PdfFeedback error={error} message="Starting the PDF engine and opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={error ? props.pdfBlobUrl : undefined} />
       </div>}
     </div>
+    <nav aria-label="PDF page navigation" className="flex shrink-0 items-center justify-between gap-3 border-t border-white/15 px-3 py-2 text-sm text-white">
+      <button type="button" aria-label="Previous PDF page" disabled={!loaded || props.currentPage <= 1} onClick={() => goToPage(props.currentPage - 1)} className="rounded-lg border border-white/25 px-3 py-2 disabled:opacity-30">← Previous</button>
+      <span aria-live="polite">Page {props.currentPage} of {props.totalPages || scrollRef.current?.getTotalPages() || "…"}</span>
+      <button type="button" aria-label="Next PDF page" disabled={!loaded || props.currentPage >= (props.totalPages || scrollRef.current?.getTotalPages() || 1)} onClick={() => goToPage(props.currentPage + 1)} className="rounded-lg border border-white/25 px-3 py-2 disabled:opacity-30">Next →</button>
+    </nav>
     {noteOpen && <form className="shrink-0 space-y-2 border-t border-white/10 p-3 text-sm" onSubmit={(event) => {
       event.preventDefault();
       if (!noteText.trim()) return;

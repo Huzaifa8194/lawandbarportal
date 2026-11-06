@@ -558,7 +558,7 @@ export default function SubjectWorkspacePage() {
       {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage} <button type="button" className="ml-2 underline" onClick={() => pdfReady ? setSaveRetryKey((prev) => prev + 1) : setStudyReloadKey((prev) => prev + 1)}>Retry notes</button></p> : null}
       {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex h-[calc(100dvh-8rem)] min-h-96 shrink-0 overflow-hidden">
         {/* PDF column */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {audioOnlyMode ? (
@@ -651,8 +651,8 @@ export default function SubjectWorkspacePage() {
             />
             <div
               className={
-                "fixed bottom-0 left-0 right-0 z-50 flex max-h-[70vh] flex-col rounded-t-2xl border-t border-white/10 bg-[#0d1514] " +
-                "lg:static lg:z-auto lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:rounded-l-none lg:border-l lg:border-t-0"
+                "fixed bottom-0 left-0 right-0 z-50 flex min-h-0 max-h-[70vh] flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0d1514] " +
+                "lg:static lg:z-auto lg:h-full lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:rounded-l-none lg:border-l lg:border-t-0"
               }
             >
               {/* Panel header */}
@@ -694,7 +694,7 @@ export default function SubjectWorkspacePage() {
               </div>
 
               {/* Panel body */}
-              <div className="flex-1 overflow-y-auto p-3">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
                 {/* ─ Notes tab ─ */}
                 {panelTab === "notes" && (
                   <div className="space-y-2">
