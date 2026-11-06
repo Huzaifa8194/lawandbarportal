@@ -1,9 +1,28 @@
 import type { AnnotationTransferItem, PdfHighlightAnnoObject } from "@embedpdf/react-pdf-viewer";
-import type { PdfHighlight } from "@/lib/types/student";
+import type { PdfHighlight, PdfNote } from "@/lib/types/student";
 
 // PDF enum value from the engine's stable PDF annotation subtype specification.
 const HIGHLIGHT = 9;
 const COLORS = { yellow: "#fef08a", green: "#86efac", blue: "#93c5fd", pink: "#f9a8d4" };
+
+export function viewerStudyItems(json: string): { highlights: PdfHighlight[]; notes: PdfNote[] } {
+  const highlights: PdfHighlight[] = [], notes: PdfNote[] = [];
+  try {
+    const items = JSON.parse(json || "[]") as AnnotationTransferItem[];
+    for (const {annotation} of items) {
+      if (annotation.id.startsWith("portal-legacy-")) continue;
+      const base = {id: `viewer:${annotation.id}`, page: annotation.pageIndex + 1, createdAt: String(annotation.created || "")};
+      if (annotation.type === HIGHLIGHT) {
+        const hex = annotation.strokeColor || annotation.color || COLORS.yellow;
+        const color = (Object.keys(COLORS) as Array<keyof typeof COLORS>).find((key) => COLORS[key] === hex) || "yellow";
+        highlights.push({...base, color, text: annotation.contents || "Highlighted passage — select it in the PDF to add a comment."});
+      } else if ((annotation.type === 1 || annotation.type === 3) && annotation.contents) {
+        notes.push({...base, text: annotation.contents});
+      }
+    }
+  } catch { /* The viewer reports malformed saved annotations without overwriting them. */ }
+  return {highlights, notes};
+}
 
 export function restoreViewerAnnotations(json: string, highlights: PdfHighlight[], pages: Array<{size: {width: number; height: number}}>): AnnotationTransferItem[] {
   const saved = json ? JSON.parse(json) as AnnotationTransferItem[] : [];

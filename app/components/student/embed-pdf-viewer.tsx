@@ -40,10 +40,14 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   const syncing = useRef(false);
   const initialDataRestored = useRef(false);
   const opened = useRef(false);
+  const lastEmittedJson = useRef(props.annotationsJson);
+  const managedIds = useRef(new Set<string>());
 
   // No initial document: listeners must be registered before opening the buffer.
   const config = useMemo<PDFViewerConfig>(() => ({
-    wasmUrl: `/vendor/embedpdf/${embedPdfVersion}/pdfium.wasm`,
+    // Worker code runs from a blob URL; its fetch needs an absolute asset URL.
+    wasmUrl: new URL(`/vendor/embedpdf/${embedPdfVersion}/pdfium.wasm`, window.location.origin).href,
+    log: process.env.NODE_ENV === "development",
     worker: true,
     tabBar: "never",
     theme: { preference: "dark" },
@@ -80,6 +84,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
           syncing.current = true;
           try {
             const items = restoreViewerAnnotations(latest.current.annotationsJson, latest.current.highlights, document.pages);
+            managedIds.current = new Set(items.map((item) => item.annotation.id));
             annotations.importAnnotations(items);
             initialDataRestored.current = true;
           } catch {
@@ -102,7 +107,9 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
           // Plain annotation objects contain geometry and comments. Binary stamp
           // tools are disabled; JSON avoids Firestore's nested-array limitation.
           const items = annotations.getAnnotations().filter((item) => item.commitState !== "deleted").map((item) => ({ annotation: item.object }));
-          latest.current.onAnnotationsChange(JSON.stringify(items));
+          managedIds.current = new Set(items.map((item) => item.annotation.id));
+          lastEmittedJson.current = JSON.stringify(items);
+          latest.current.onAnnotationsChange(lastEmittedJson.current);
         }),
       );
       const response = await fetch(latest.current.pdfBlobUrl);
@@ -130,6 +137,20 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
       }
     } finally { syncing.current = false; }
   }, [props.highlights, loaded]);
+
+  useEffect(() => {
+    const api = annotationRef.current;
+    if (!loaded || !api || props.annotationsJson === lastEmittedJson.current) return;
+    try {
+      const saved = JSON.parse(props.annotationsJson || "[]") as Array<{annotation: {id: string}}>;
+      const ids = new Set(saved.map((item) => item.annotation.id));
+      syncing.current = true;
+      for (const item of api.getAnnotations()) {
+        if (managedIds.current.has(item.object.id) && !item.object.id.startsWith("portal-legacy-") && !ids.has(item.object.id)) api.deleteAnnotation(item.object.pageIndex, item.object.id);
+      }
+      lastEmittedJson.current = props.annotationsJson;
+    } finally { syncing.current = false; }
+  }, [props.annotationsJson, loaded]);
 
   const startNote = async () => {
     const selection = registryRef.current?.getPlugin<SelectionPlugin>("selection")?.provides();

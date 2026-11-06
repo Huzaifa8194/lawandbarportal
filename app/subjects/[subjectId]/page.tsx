@@ -8,6 +8,7 @@ import { audiosForSubjectSorted } from "@/lib/sort-audios";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import StudyPdfPane from "@/app/components/student/study-pdf-pane";
 import PdfFeedback from "@/app/components/student/pdf-feedback";
+import { viewerStudyItems } from "@/lib/pdf-annotations";
 import { downloadBookPdf } from "@/lib/services/pdf-download";
 import { describePdfError, PdfLoadError } from "@/lib/pdf-errors";
 import StudentAssistant from "@/app/components/student-assistant";
@@ -307,7 +308,7 @@ export default function SubjectWorkspacePage() {
           updatedAt: new Date().toISOString(),
         })
         .then(() => setPdfMessage(null))
-        .catch(() => setPdfMessage("Could not autosave. Your current changes are local until retry succeeds."));
+        .catch((error: unknown) => setPdfMessage(`Study changes have not been saved: ${error instanceof Error ? error.message : "connection failed"}. Keep this tab open and retry.`));
     }, 700);
     return () => clearTimeout(timer);
   }, [relatedBook?.id, pdfReady, currentPage, bookmarks, notes, highlights, viewerAnnotationsJson, saveRetryKey]);
@@ -366,8 +367,17 @@ export default function SubjectWorkspacePage() {
     () => relatedVideos.find((video) => video.id === selectedVideoId) ?? null,
     [relatedVideos, selectedVideoId],
   );
-  const pageHighlights = highlights.filter((item) => item.page === currentPage);
-  const pageNotes = notes.filter((item) => item.page === currentPage);
+  const nativeStudyItems = useMemo(() => viewerStudyItems(viewerAnnotationsJson), [viewerAnnotationsJson]);
+  const allHighlights = [...highlights, ...nativeStudyItems.highlights];
+  const allNotes = [...notes, ...nativeStudyItems.notes];
+  const removeStudyItem = (id: string, kind: "note" | "highlight") => {
+    if (id.startsWith("viewer:")) {
+      setViewerAnnotationsJson((json) => JSON.stringify((JSON.parse(json || "[]") as Array<{annotation: {id: string}}>).filter((item) => item.annotation.id !== id.slice(7))));
+    } else if (kind === "note") setNotes((prev) => prev.filter((note) => note.id !== id));
+    else setHighlights((prev) => prev.filter((highlight) => highlight.id !== id));
+  };
+  const pageHighlights = allHighlights.filter((item) => item.page === currentPage);
+  const pageNotes = allNotes.filter((item) => item.page === currentPage);
   const pdfUrl = relatedBookId ? pdfBlobUrl : null;
   const trackRoot = pathname.startsWith("/books/")
     ? "/books"
@@ -704,7 +714,7 @@ export default function SubjectWorkspacePage() {
                         <p className="leading-relaxed text-white/85">{note.text}</p>
                         <button
                           type="button"
-                          onClick={() => setNotes((prev) => prev.filter((n) => n.id !== note.id))}
+                          onClick={() => removeStudyItem(note.id, "note")}
                           className="mt-1 text-[10px] text-red-400/70 hover:text-red-300"
                         >
                           Remove
@@ -714,12 +724,12 @@ export default function SubjectWorkspacePage() {
                     {!pageNotes.length && <p className="py-4 text-center text-xs text-white/30">No notes on this page.</p>}
 
                     {/* All notes (other pages) */}
-                    {notes.filter((n) => n.page !== currentPage).length > 0 && (
+                    {allNotes.filter((n) => n.page !== currentPage).length > 0 && (
                       <>
                         <div className="mt-3 border-t border-white/10 pt-2">
                           <p className="text-[11px] font-medium text-white/40">Other pages</p>
                         </div>
-                        {notes
+                        {allNotes
                           .filter((n) => n.page !== currentPage)
                           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                           .slice(0, 20)
@@ -785,7 +795,7 @@ export default function SubjectWorkspacePage() {
                         <p className="leading-relaxed text-white/80">{item.text}</p>
                         <button
                           type="button"
-                          onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== item.id))}
+                          onClick={() => removeStudyItem(item.id, "highlight")}
                           className="mt-1 text-[10px] text-red-400/70 hover:text-red-300"
                         >
                           Remove
@@ -795,12 +805,12 @@ export default function SubjectWorkspacePage() {
                     {!pageHighlights.length && <p className="py-4 text-center text-xs text-white/30">No highlights on this page.</p>}
 
                     {/* All highlights (other pages) */}
-                    {highlights.filter((h) => h.page !== currentPage).length > 0 && (
+                    {allHighlights.filter((h) => h.page !== currentPage).length > 0 && (
                       <>
                         <div className="mt-3 border-t border-white/10 pt-2">
                           <p className="text-[11px] font-medium text-white/40">Other pages</p>
                         </div>
-                        {highlights
+                        {allHighlights
                           .filter((h) => h.page !== currentPage)
                           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                           .slice(0, 20)
