@@ -7,6 +7,9 @@ import { studentApi } from "@/lib/services/student-api";
 import { audiosForSubjectSorted } from "@/lib/sort-audios";
 import type { AudioStudyState, PdfHighlight, PdfNote, PdfStudyState } from "@/lib/types/student";
 import StudyPdfPane from "@/app/components/student/study-pdf-pane";
+import PdfFeedback from "@/app/components/student/pdf-feedback";
+import { downloadBookPdf } from "@/lib/services/pdf-download";
+import { describePdfError, PdfLoadError } from "@/lib/pdf-errors";
 import StudentAssistant from "@/app/components/student-assistant";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 import { useAuth } from "../../context/auth-context";
@@ -92,8 +95,12 @@ export default function SubjectWorkspacePage() {
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
+  const [pdfLoadError, setPdfLoadError] = useState<PdfLoadError | null>(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
+  const [pdfProgress, setPdfProgress] = useState("Checking book access…");
+  const [viewerAnnotationsJson, setViewerAnnotationsJson] = useState("");
+  const [studyReloadKey, setStudyReloadKey] = useState(0);
+  const [saveRetryKey, setSaveRetryKey] = useState(0);
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const pdfBlobRef = useRef<string | null>(null);
   const lastLoadedBookRef = useRef<string | null>(null);
@@ -186,7 +193,7 @@ export default function SubjectWorkspacePage() {
         return;
       }
       if (!user) return;
-      if (lastLoadedBookRef.current !== relatedBookId && pdfBlobRef.current) {
+      if (pdfBlobRef.current) {
         URL.revokeObjectURL(pdfBlobRef.current);
         pdfBlobRef.current = null;
         setPdfBlobUrl(null);
@@ -196,41 +203,22 @@ export default function SubjectWorkspacePage() {
       setPdfLoading(true);
       setPdfLoadError(null);
       try {
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          let retryable = true;
-          try {
-            const token = await user.getIdToken(attempt > 0);
-            const response = await fetch(`/api/student/books/${encodeURIComponent(relatedBookId)}/file`, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(115_000)]),
-              cache: "no-store",
-            });
-            if (!response.ok) {
-              retryable = [401, 408, 429].includes(response.status) || response.status >= 500;
-              await response.body?.cancel();
-              throw new Error("PDF request failed");
-            }
-            const blob = await response.blob();
-            if (await blob.slice(0, 5).text() !== "%PDF-") {
-              throw new Error("Invalid PDF response");
-            }
-            if (cancelled) return;
-            const nextUrl = URL.createObjectURL(blob);
-            if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
-            pdfBlobRef.current = nextUrl;
-            setPdfBlobUrl(nextUrl);
-            return;
-          } catch (error) {
-            if (controller.signal.aborted) return;
-            if (!retryable || attempt === 2) throw error;
-            await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
-            if (controller.signal.aborted) return;
+        const blob = await downloadBookPdf(relatedBookId, (refresh) => user.getIdToken(refresh), controller.signal, (progress) => {
+          if (cancelled) return;
+          if (progress.stage === "source") setPdfProgress(`Checking book access and locating the PDF… (attempt ${progress.attempt}/3)`);
+          else {
+            const mb = ((progress.received || 0) / 1024 / 1024).toFixed(1);
+            const total = progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : " MB";
+            setPdfProgress(`Downloading PDF: ${mb}${total}${progress.transport === "proxy" ? " · using fallback connection" : ""} (attempt ${progress.attempt}/3)`);
           }
-        }
-      } catch {
-        if (!cancelled) {
-          setPdfLoadError("PDF could not be loaded right now. Tap retry.");
-        }
+        });
+        if (cancelled) return;
+        const nextUrl = URL.createObjectURL(blob);
+        if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
+        pdfBlobRef.current = nextUrl;
+        setPdfBlobUrl(nextUrl);
+      } catch (error) {
+        if (!cancelled) setPdfLoadError(describePdfError(error));
       } finally {
         if (!cancelled) setPdfLoading(false);
       }
@@ -266,6 +254,7 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     if (!relatedBook?.id) {
       setPdfReady(false);
+      setViewerAnnotationsJson("");
       setCurrentPage(1);
       setBookmarks([]);
       setNotes([]);
@@ -280,28 +269,29 @@ export default function SubjectWorkspacePage() {
         const saved = (await studentApi.getPdfState(relatedBook.id)) as PdfStudyState | null;
         if (cancelled) return;
         if (saved) {
+          setViewerAnnotationsJson(saved.viewerAnnotationsJson || "");
           setCurrentPage(saved.currentPage || 1);
           setBookmarks(Array.isArray(saved.bookmarks) ? saved.bookmarks : []);
           setNotes(Array.isArray(saved.notes) ? saved.notes : []);
           setHighlights(Array.isArray(saved.highlights) ? saved.highlights : []);
         } else {
+          setViewerAnnotationsJson("");
           setCurrentPage(1);
           setBookmarks([]);
           setNotes([]);
           setHighlights([]);
         }
         setPdfMessage(null);
+        setPdfReady(true);
       } catch {
-        if (!cancelled) setPdfMessage("Could not load saved study notes. You can still continue studying.");
-      } finally {
-        if (!cancelled) setPdfReady(true);
+        if (!cancelled) setPdfMessage("Saved study notes could not be loaded. Editing is paused to protect your saved work. Retry loading notes.");
       }
     };
     void load();
     return () => {
       cancelled = true;
     };
-  }, [relatedBook?.id]);
+  }, [relatedBook?.id, studyReloadKey]);
 
   useEffect(() => {
     if (!relatedBook?.id || !pdfReady) return;
@@ -313,13 +303,14 @@ export default function SubjectWorkspacePage() {
           bookmarks,
           notes,
           highlights,
+          viewerAnnotationsJson,
           updatedAt: new Date().toISOString(),
         })
         .then(() => setPdfMessage(null))
         .catch(() => setPdfMessage("Could not autosave. Your current changes are local until retry succeeds."));
     }, 700);
     return () => clearTimeout(timer);
-  }, [relatedBook?.id, pdfReady, currentPage, bookmarks, notes, highlights]);
+  }, [relatedBook?.id, pdfReady, currentPage, bookmarks, notes, highlights, viewerAnnotationsJson, saveRetryKey]);
 
   // ── Audio state persistence ──
   useEffect(() => {
@@ -557,7 +548,7 @@ export default function SubjectWorkspacePage() {
         </div>
       </header>
 
-      {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage}</p> : null}
+      {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage} <button type="button" className="ml-2 underline" onClick={() => pdfReady ? setSaveRetryKey((prev) => prev + 1) : setStudyReloadKey((prev) => prev + 1)}>Retry notes</button></p> : null}
       {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -596,7 +587,7 @@ export default function SubjectWorkspacePage() {
                 </div>
               </div>
             </div>
-          ) : subject && relatedBook && pdfUrl ? (
+          ) : subject && relatedBook && pdfUrl && pdfReady ? (
             <StudyPdfPane
               bookId={relatedBookId}
               pdfBlobUrl={pdfUrl}
@@ -606,19 +597,11 @@ export default function SubjectWorkspacePage() {
               onPageChange={setCurrentPage}
               onNumPages={setPdfNumPages}
               mobileToolbarAddon={<StudentAssistant inlineMobile />}
-              onHighlight={(text, color, rects) => {
-                setHighlights((prev) => [
-                  {
-                    id: uid(),
-                    page: currentPage,
-                    text,
-                    color,
-                    rects,
-                    createdAt: new Date().toISOString(),
-                  },
-                  ...prev,
-                ]);
-              }}
+              highlights={highlights}
+              annotationsJson={viewerAnnotationsJson}
+              onAnnotationsChange={setViewerAnnotationsJson}
+              onLegacyHighlightDelete={(id) => setHighlights((prev) => prev.filter((highlight) => highlight.id !== id))}
+              onRetry={() => setPdfReloadKey((prev) => prev + 1)}
               onNote={(selectedText, noteContent) => {
                 setNotes((prev) => [
                   {
@@ -631,21 +614,13 @@ export default function SubjectWorkspacePage() {
                   ...prev,
                 ]);
               }}
-              pageHighlights={pageHighlights}
             />
           ) : subject && relatedBook ? (
-            <div className="flex flex-1 items-center justify-center p-8">
-              <div className="max-w-sm rounded-xl border border-white/15 bg-white/5 p-6 text-center text-sm text-white/70">
-                <p>{pdfLoading ? "Loading PDF..." : pdfLoadError || "Preparing your PDF..."}</p>
-                <button
-                  type="button"
-                  onClick={() => setPdfReloadKey((prev) => prev + 1)}
-                  className="mt-3 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/15"
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
+            <PdfFeedback
+              error={pdfLoadError || (!pdfReady && pdfMessage ? new PdfLoadError(pdfMessage, "PDF_STUDY_LOAD", "save", true) : null)}
+              message={pdfLoading ? pdfProgress : !pdfReady ? "Loading your saved notes and annotations…" : "Preparing your PDF…"}
+              onRetry={!pdfLoading ? () => { setPdfReloadKey((prev) => prev + 1); if (!pdfReady) setStudyReloadKey((prev) => prev + 1); } : undefined}
+            />
           ) : subject ? (
             <div className="flex flex-1 items-center justify-center p-8 text-sm text-white/50">
               No PDF book available for this subject yet.

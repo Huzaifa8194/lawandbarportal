@@ -36,6 +36,7 @@ export type PdfStudyState = {
   bookmarks: PdfBookmark[];
   notes: PdfNote[];
   highlights: PdfHighlight[];
+  viewerAnnotationsJson?: string;
   updatedAt: string;
 };
 

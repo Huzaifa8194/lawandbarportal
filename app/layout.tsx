@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import "@cyntler/react-doc-viewer/dist/index.css";
 import { AuthProvider } from "./context/auth-context";
 import RegisterSW from "./components/register-sw";
 import InstallPrompt from "./components/install-prompt";

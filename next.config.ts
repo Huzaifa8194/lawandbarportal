@@ -1,10 +1,5 @@
 import type { NextConfig } from "next";
 import path from "node:path";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-// Resolve from react-pdf so the worker always matches its PDF.js runtime.
-const pdfWorker = createRequire(require.resolve("react-pdf")).resolve("pdfjs-dist/build/pdf.worker.min.mjs");
 
 const canvasStub = path.resolve(process.cwd(), "stubs/canvas-stub.js");
 
@@ -16,7 +11,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       canvas: canvasStub,
-      "pdf-worker": pdfWorker,
     },
   },
 
@@ -24,7 +18,6 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       canvas: false,
-      "pdf-worker": pdfWorker,
     };
     return config;
   },
