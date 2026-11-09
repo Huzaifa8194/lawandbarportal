@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, ScrollStrategy, SpreadMode, ZoomMode, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
+import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, ScrollStrategy, SpreadMode, UIPlugin, ZoomMode, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
 import { PdfLoadError } from "@/lib/pdf-errors";
 import { restoreViewerAnnotations } from "@/lib/pdf-annotations";
 import type { PdfHighlight } from "@/lib/types/student";
@@ -15,7 +15,7 @@ export type StudyPdfPaneProps = {
   totalPages?: number | null;
   onPageChange?: (page: number) => void;
   onNumPages: (n: number) => void;
-  onNote?: (selectedText: string, content: string) => void;
+  onNote?: (selectedText: string, content: string, page: number) => void;
   highlights: PdfHighlight[];
   annotationsJson: string;
   onAnnotationsChange: (json: string) => void;
@@ -31,6 +31,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [selectedText, setSelectedText] = useState("");
+  const [notePage, setNotePage] = useState(1);
   const latest = useRef(props);
   latest.current = props;
   const registryRef = useRef<PluginRegistry | null>(null);
@@ -47,21 +48,28 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   const config = useMemo<PDFViewerConfig>(() => ({
     // Worker code runs from a blob URL; its fetch needs an absolute asset URL.
     wasmUrl: new URL(`/vendor/embedpdf/${embedPdfVersion}/pdfium.wasm`, window.location.origin).href,
-    log: process.env.NODE_ENV === "development",
     worker: true,
     tabBar: "never",
-    theme: { preference: "dark" },
+    theme: {
+      preference: "dark",
+      dark: {
+        background: { app: "#25312e", surface: "#101b19", surfaceAlt: "#172522", elevated: "#20312d" },
+        border: { default: "#354843", subtle: "#273a35" },
+        accent: { primary: "#8ed9c9", primaryForeground: "#10231d" },
+      },
+    },
     fonts: { ui: null, signature: null },
     scroll: { defaultStrategy: ScrollStrategy.Horizontal, defaultPageGap: Math.max(window.innerWidth, window.screen.width) + 64, defaultBufferSize: 0 },
     spread: { defaultSpreadMode: SpreadMode.None },
     zoom: { defaultZoomLevel: ZoomMode.FitPage },
-    disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form", "scroll", "spread"],
+    disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form", "scroll", "spread", "navigation"],
     annotations: { annotationAuthor: "Student" },
   }), []);
 
   const goToPage = useCallback((page: number) => {
     const total = scrollRef.current?.getTotalPages() || latest.current.totalPages || 1;
     const next = Math.min(total, Math.max(1, page));
+    if (next === latest.current.currentPage) return;
     scrollRef.current?.scrollToPage({ pageNumber: next, behavior: "instant" });
     latest.current.onPageChange?.(next);
   }, []);
@@ -96,12 +104,15 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
       const documents = registry.getPlugin<DocumentManagerPlugin>("document-manager")?.provides();
       const annotations = registry.getPlugin<AnnotationPlugin>("annotation")?.provides();
       const scroll = registry.getPlugin<ScrollPlugin>("scroll")?.provides();
+      const ui = registry.getPlugin<UIPlugin>("ui")?.provides();
+      const pageControls = ui?.getSchema().overlays?.["page-controls"];
+      if (pageControls) ui?.mergeSchema({ overlays: { "page-controls": { ...pageControls, defaultEnabled: false } } });
       if (!documents || !annotations || !scroll) throw new Error("Required viewer plugins are unavailable.");
       annotationRef.current = annotations;
       scrollRef.current = scroll;
       cleanupRef.current.push(
         documents.onDocumentError((event) => {
-          setError(new PdfLoadError(`The PDF engine could not open this file: ${event.message}`, `PDF_ENGINE_${event.code ?? "OPEN"}`, "render", false));
+          setError(new PdfLoadError("This PDF could not be displayed. Try opening the downloaded copy.", `PDF_ENGINE_${event.code ?? "OPEN"}`, "render", false));
         }),
         documents.onDocumentOpened((state) => {
           const document = state.document;
@@ -143,8 +154,8 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
       if (!response.ok) throw new Error("The downloaded PDF is no longer available in this tab.");
       const buffer = await response.arrayBuffer();
       await documents.openDocumentBuffer({ buffer, name: latest.current.title, documentId: latest.current.bookId }).toPromise();
-    } catch (cause) {
-      setError(new PdfLoadError(cause instanceof Error ? cause.message : "The PDF engine could not start.", "PDF_ENGINE_OPEN", "render", true));
+    } catch {
+      setError((previous) => previous ?? new PdfLoadError("The viewer could not open this PDF. Retry or open the downloaded copy.", "PDF_ENGINE_OPEN", "render", true));
     }
   }, []);
 
@@ -180,45 +191,52 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   }, [props.annotationsJson, loaded]);
 
   const startNote = async () => {
+    setNotePage(props.currentPage);
     const selection = registryRef.current?.getPlugin<SelectionPlugin>("selection")?.provides();
     try { setSelectedText((await selection?.getSelectedText().toPromise())?.join(" ") || ""); }
     catch { setSelectedText(""); }
     setNoteOpen(true);
   };
 
-  return <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1110]">
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2 text-xs text-white/65">
-      <span className="truncate">{props.title}</span>
-      <div className="flex shrink-0 items-center gap-3">
-        <button type="button" disabled={!loaded} onClick={() => void startNote()} className="rounded border border-white/20 px-2 py-1 text-white disabled:opacity-40">Add study note</button>
-        <span className="lg:hidden">{props.mobileToolbarAddon}</span>
-      </div>
-    </div>
+  return <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#25312e]">
     {annotationError && <p role="alert" className="bg-amber-950 p-3 text-xs text-amber-200">{annotationError}</p>}
     <div className="relative min-h-0 flex-1">
       <PDFViewer config={config} onReady={onReady} onInit={(container) => {
         // Keep horizontal paging programmatic; vertical scrolling and the hand
         // tool remain available when zooming. The gutter isolates each page.
         const style = document.createElement("style");
-        style.textContent = 'div[style*="overflow: auto"] { overflow-x: hidden !important; }';
+        style.textContent = '.embedpdf-snippet-root div[style*="overflow: auto"][style*="width: 100%"][style*="height: 100%"] { overflow-x: hidden !important; overscroll-behavior: contain; }';
         container.shadowRoot?.appendChild(style);
       }} style={{ width: "100%", height: "100%" }} />
       {(!loaded || error) && <div className="absolute inset-0 z-30 flex bg-[#0b1110]">
         <PdfFeedback error={error} message="Starting the PDF engine and opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={error ? props.pdfBlobUrl : undefined} />
       </div>}
     </div>
-    <nav aria-label="PDF page navigation" className="flex shrink-0 items-center justify-between gap-3 border-t border-white/15 px-3 py-2 text-sm text-white">
-      <button type="button" aria-label="Previous PDF page" disabled={!loaded || props.currentPage <= 1} onClick={() => goToPage(props.currentPage - 1)} className="rounded-lg border border-white/25 px-3 py-2 disabled:opacity-30">← Previous</button>
-      <span aria-live="polite">Page {props.currentPage} of {props.totalPages || scrollRef.current?.getTotalPages() || "…"}</span>
-      <button type="button" aria-label="Next PDF page" disabled={!loaded || props.currentPage >= (props.totalPages || scrollRef.current?.getTotalPages() || 1)} onClick={() => goToPage(props.currentPage + 1)} className="rounded-lg border border-white/25 px-3 py-2 disabled:opacity-30">Next →</button>
-    </nav>
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/10 bg-[#101b19] px-3 py-1.5 sm:px-5">
+      <nav aria-label="PDF page navigation" className="flex items-center gap-2 sm:gap-3">
+        <button type="button" aria-label="Previous PDF page" aria-keyshortcuts="ArrowLeft PageUp" disabled={!loaded || props.currentPage <= 1} onClick={() => goToPage(props.currentPage - 1)} className="grid size-10 place-items-center rounded-lg border border-white/15 text-lg text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-30">←</button>
+        <form className="flex items-center gap-1 text-xs font-medium tabular-nums text-white/70" onSubmit={(event) => {
+          event.preventDefault();
+          const page = Number(new FormData(event.currentTarget).get("page"));
+          if (Number.isInteger(page) && page > 0) goToPage(page);
+        }}>
+          <input key={props.currentPage} name="page" type="number" min={1} max={props.totalPages ?? undefined} defaultValue={props.currentPage} aria-label="Go to PDF page" disabled={!loaded} className="h-10 w-12 rounded-lg bg-white/5 text-center text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+          <span aria-live="polite">/ {props.totalPages || "—"}</span>
+        </form>
+        <button type="button" aria-label="Next PDF page" aria-keyshortcuts="ArrowRight PageDown" disabled={!loaded || props.currentPage >= (props.totalPages || 1)} onClick={() => goToPage(props.currentPage + 1)} className="grid size-10 place-items-center rounded-lg border border-white/15 text-lg text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-30">→</button>
+      </nav>
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={!loaded || noteOpen} onClick={() => void startNote()} className="min-h-10 rounded-lg bg-[#8ed9c9]/12 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#8ed9c9]/20 disabled:opacity-40">Add note</button>
+        <span className="lg:hidden">{props.mobileToolbarAddon}</span>
+      </div>
+    </div>
     {noteOpen && <form className="shrink-0 space-y-2 border-t border-white/10 p-3 text-sm" onSubmit={(event) => {
       event.preventDefault();
       if (!noteText.trim()) return;
-      props.onNote?.(selectedText, noteText.trim());
+      props.onNote?.(selectedText, noteText.trim(), notePage);
       setNoteText(""); setNoteOpen(false);
     }}>
-      <label htmlFor="pdf-study-note" className="text-white/70">Study note · page {props.currentPage}</label>
+      <label htmlFor="pdf-study-note" className="text-white/70">Study note · page {notePage}</label>
       {selectedText && <p className="line-clamp-2 text-xs text-white/50">Selected: {selectedText}</p>}
       <textarea id="pdf-study-note" required autoFocus value={noteText} onChange={(event) => setNoteText(event.target.value)} className="w-full rounded border border-white/20 bg-black/20 p-2 text-white" />
       <button type="submit" className="mr-3 rounded bg-[#26d9c0] px-3 py-1 text-black">Save note</button>

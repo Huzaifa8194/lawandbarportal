@@ -91,7 +91,6 @@ export default function SubjectWorkspacePage() {
   const [bookmarks, setBookmarks] = useState<Array<{ id: string; page: number; label: string }>>([]);
   const [notes, setNotes] = useState<PdfNote[]>([]);
   const [highlights, setHighlights] = useState<PdfHighlight[]>([]);
-  const [noteText, setNoteText] = useState("");
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -107,7 +106,6 @@ export default function SubjectWorkspacePage() {
 
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [showAudioPicker, setShowAudioPicker] = useState(false);
-  const [showHeaderAudioPicker, setShowHeaderAudioPicker] = useState(false);
   const [audioPosition, setAudioPosition] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioRate, setAudioRate] = useState(1);
@@ -116,20 +114,16 @@ export default function SubjectWorkspacePage() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioPickerRef = useRef<HTMLDivElement | null>(null);
-  const headerAudioPickerRef = useRef<HTMLDivElement | null>(null);
 
   // Side panel state
   const [showPanel, setShowPanel] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("notes");
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
     const apply = () => {
       const desktop = media.matches;
-      setIsDesktop(desktop);
-      // Keep notes panel open by default on desktop.
-      if (desktop) setShowPanel(true);
+      setShowPanel(desktop);
     };
     apply();
     media.addEventListener("change", apply);
@@ -164,17 +158,6 @@ export default function SubjectWorkspacePage() {
     return () => document.removeEventListener("click", onDocClick);
   }, [showAudioPicker]);
 
-  useEffect(() => {
-    if (!showHeaderAudioPicker) return;
-    const onDocClick = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (headerAudioPickerRef.current && target && headerAudioPickerRef.current.contains(target)) return;
-      setShowHeaderAudioPicker(false);
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, [showHeaderAudioPicker]);
-
   // ── PDF blob loading ──
   useEffect(() => {
     let cancelled = false;
@@ -203,11 +186,11 @@ export default function SubjectWorkspacePage() {
       try {
         const blob = await downloadBookPdf(relatedBookId, (refresh) => user.getIdToken(refresh), controller.signal, (progress) => {
           if (cancelled) return;
-          if (progress.stage === "source") setPdfProgress(`Checking book access and locating the PDF… (attempt ${progress.attempt}/3)`);
+          if (progress.stage === "source") setPdfProgress("Finding your book…");
           else {
             const mb = ((progress.received || 0) / 1024 / 1024).toFixed(1);
             const total = progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : " MB";
-            setPdfProgress(`Downloading PDF: ${mb}${total}${progress.transport === "proxy" ? " · using fallback connection" : ""} (attempt ${progress.attempt}/3)`);
+            setPdfProgress(`Downloading PDF: ${mb}${total}`);
           }
         });
         if (cancelled) return;
@@ -383,20 +366,6 @@ export default function SubjectWorkspacePage() {
       : "/subjects";
   const backTrackHref = subject?.track === "FLK 2" ? `${trackRoot}/flk2` : `${trackRoot}/flk1`;
 
-  const addNote = () => {
-    if (!noteText.trim()) return;
-    setNotes((prev) => [
-      {
-        id: uid(),
-        page: currentPage,
-        text: noteText.trim(),
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-    setNoteText("");
-  };
-
   const addBookmarkForCurrentPage = () => {
     setBookmarks((prev) => {
       const exists = prev.some((mark) => mark.page === currentPage);
@@ -420,11 +389,12 @@ export default function SubjectWorkspacePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0f1716] text-white">
+    <div className="min-h-screen bg-[#0f1716] text-white">
+      <div className={audioOnlyMode ? "flex min-h-dvh flex-col" : "flex h-dvh min-h-72 flex-col"}>
       {/* ── Compact header (single row) ── */}
       <header
-        className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#0f1716]/95 px-3 backdrop-blur sm:px-4"
-        style={{ paddingTop: "calc(18px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
+        className="z-40 flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-[#101b19] px-3 sm:px-5"
+        style={{ paddingTop: "calc(8px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
       >
         <Link
           href={backTrackHref}
@@ -453,7 +423,8 @@ export default function SubjectWorkspacePage() {
           <select
             value={selectedBookId}
             onChange={(e) => setSelectedBookId(e.target.value)}
-            className="hidden max-w-[180px] truncate rounded-lg border border-white/15 bg-[#0d1514] px-2 py-1 text-xs text-white sm:block"
+            aria-label="Choose study book"
+            className="order-last w-full sm:order-none sm:w-auto sm:max-w-[180px] truncate rounded-lg border border-white/15 bg-[#0d1514] px-2 py-1 text-xs text-white sm:block"
           >
             {booksForSubject.map((b) => (
               <option key={b.id} value={b.id}>
@@ -463,102 +434,23 @@ export default function SubjectWorkspacePage() {
           </select>
         )}
 
-        {!audioOnlyMode && (
+        {!audioOnlyMode && relatedBook && (
           <button
             type="button"
-            onClick={addBookmarkForCurrentPage}
-            className="hidden rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10 sm:inline-flex"
+            onClick={() => setShowPanel((open) => !open)}
+            aria-expanded={showPanel}
+            aria-controls="study-panel"
+            className="min-h-10 shrink-0 rounded-lg border border-[#86cfc1]/30 bg-[#86cfc1]/10 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#86cfc1]/20 focus-visible:outline-2 focus-visible:outline-[#86cfc1]"
           >
-            Bookmark page {currentPage}
+            Study tools
           </button>
         )}
-
-        {/* Audios (count) — compact picker; current track shown in footer */}
-        {filteredAudios.length > 0 && (
-          <div ref={headerAudioPickerRef} className="relative hidden sm:block">
-            <button
-              type="button"
-              onClick={() => {
-                setShowHeaderAudioPicker((v) => !v);
-                setShowAudioPicker(false);
-              }}
-              className="flex max-w-[140px] items-center gap-1 rounded-lg border border-white/15 bg-[#0d1514] px-2.5 py-1 text-xs font-medium text-white/85 transition hover:border-white/25 hover:bg-white/[0.07]"
-              aria-expanded={showHeaderAudioPicker}
-              aria-haspopup="listbox"
-              title="Choose audio lesson"
-            >
-              <span className="truncate">Audios ({filteredAudios.length})</span>
-              <svg className="size-3 shrink-0 text-white/45" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showHeaderAudioPicker && (
-              <div
-                className="absolute right-0 top-full z-50 mt-1 max-h-56 w-[min(100vw-24px,280px)] overflow-y-auto rounded-lg border border-white/15 bg-[#0d1514] p-1 shadow-xl"
-                role="listbox"
-              >
-                {filteredAudios.map((audio) => {
-                  const active = audio.id === selectedAudioId;
-                  return (
-                    <button
-                      key={audio.id}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      onClick={() => {
-                        setSelectedAudioId(audio.id);
-                        setShowHeaderAudioPicker(false);
-                      }}
-                      className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition ${
-                        active
-                          ? "bg-[#26d9c0]/20 text-[#7cfce9]"
-                          : "text-white/75 hover:bg-white/10 hover:text-white"
-                      }`}
-                      title={audio.title}
-                    >
-                      {audio.title}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex shrink-0 items-center gap-1">
-          {!audioOnlyMode && pageHighlights.length > 0 && (
-            <span className="flex size-5 items-center justify-center rounded-full bg-[#26d9c0]/15 text-[10px] font-bold text-[#6cf4e0]">
-              {pageHighlights.length}
-            </span>
-          )}
-          {pageNotes.length > 0 && (
-            <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300">
-              {pageNotes.length}
-            </span>
-          )}
-          {isDesktop && (
-            <button
-              type="button"
-              onClick={() => setShowPanel((v) => !v)}
-              title={audioOnlyMode ? "Notes panel" : "Notes &amp; highlights panel"}
-              className={`hidden size-8 items-center justify-center rounded-md border transition lg:flex ${
-                showPanel
-                  ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#6cf4e0]"
-                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
-              }`}
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </button>
-          )}
-        </div>
       </header>
 
       {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage} <button type="button" className="ml-2 underline" onClick={() => pdfReady ? setSaveRetryKey((prev) => prev + 1) : setStudyReloadKey((prev) => prev + 1)}>Retry notes</button></p> : null}
       {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
-      <div className="flex h-[calc(100dvh-8rem)] min-h-96 shrink-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* PDF column */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {audioOnlyMode ? (
@@ -609,11 +501,11 @@ export default function SubjectWorkspacePage() {
               onAnnotationsChange={setViewerAnnotationsJson}
               onLegacyHighlightDelete={(id) => setHighlights((prev) => prev.filter((highlight) => highlight.id !== id))}
               onRetry={() => setPdfReloadKey((prev) => prev + 1)}
-              onNote={(selectedText, noteContent) => {
+              onNote={(selectedText, noteContent, page) => {
                 setNotes((prev) => [
                   {
                     id: uid(),
-                    page: currentPage,
+                    page,
                     text: noteContent,
                     selectedText,
                     createdAt: new Date().toISOString(),
@@ -640,7 +532,7 @@ export default function SubjectWorkspacePage() {
         </div>
 
         {/* ── Side panel (desktop: beside PDF, mobile: bottom drawer overlay) ── */}
-        {showPanel && (
+        {showPanel && !audioOnlyMode && (
           <>
             {/* Mobile backdrop */}
             <button
@@ -649,10 +541,12 @@ export default function SubjectWorkspacePage() {
               className="fixed inset-0 z-40 bg-black/60 lg:hidden"
               aria-label="Close panel"
             />
-            <div
+            <aside
+              id="study-panel"
+              aria-label="Study tools"
               className={
-                "fixed bottom-0 left-0 right-0 z-50 flex min-h-0 max-h-[70vh] flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0d1514] " +
-                "lg:static lg:z-auto lg:h-full lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:rounded-l-none lg:border-l lg:border-t-0"
+                "fixed bottom-0 left-0 right-0 z-50 flex min-h-0 max-h-[75dvh] pb-[env(safe-area-inset-bottom)] lg:pb-0 flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0d1514] " +
+                "lg:static lg:z-auto lg:h-full lg:max-h-none lg:w-80 xl:w-96 lg:shrink-0 lg:rounded-none lg:rounded-l-none lg:border-l lg:border-t-0"
               }
             >
               {/* Panel header */}
@@ -663,6 +557,7 @@ export default function SubjectWorkspacePage() {
                       key={tab}
                       type="button"
                       onClick={() => setPanelTab(tab)}
+                      aria-pressed={panelTab === tab}
                       className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition ${
                         panelTab === tab
                           ? "bg-white/10 text-white"
@@ -685,6 +580,7 @@ export default function SubjectWorkspacePage() {
                 <button
                   type="button"
                   onClick={() => setShowPanel(false)}
+                  aria-label="Close study tools"
                   className="flex size-6 items-center justify-center rounded-md text-white/40 hover:bg-white/10 hover:text-white/70"
                 >
                   <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -718,7 +614,7 @@ export default function SubjectWorkspacePage() {
                         </button>
                       </div>
                     ))}
-                    {!pageNotes.length && <p className="py-4 text-center text-xs text-white/30">No notes on this page.</p>}
+                    {!pageNotes.length && <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-white/55">Use Add note to save a thought about this page.</p>}
 
                     {/* All notes (other pages) */}
                     {allNotes.filter((n) => n.page !== currentPage).length > 0 && (
@@ -744,24 +640,6 @@ export default function SubjectWorkspacePage() {
                       </>
                     )}
 
-                    {/* Quick note input */}
-                    <div className="mt-3 border-t border-white/10 pt-3">
-                      <textarea
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Quick note for this page..."
-                        rows={2}
-                        className="w-full rounded-lg border border-white/10 bg-[#0a1110] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-[#26d9c0]/40 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={addNote}
-                        disabled={!noteText.trim()}
-                        className="mt-1.5 w-full rounded-lg border border-[#26d9c0]/50 bg-[#26d9c0]/10 py-1.5 text-xs font-medium text-[#78ffea] transition enabled:active:bg-[#26d9c0]/20 disabled:opacity-40"
-                      >
-                        Save note
-                      </button>
-                    </div>
                   </div>
                 )}
 
@@ -799,7 +677,7 @@ export default function SubjectWorkspacePage() {
                         </button>
                       </div>
                     ))}
-                    {!pageHighlights.length && <p className="py-4 text-center text-xs text-white/30">No highlights on this page.</p>}
+                    {!pageHighlights.length && <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-white/55">Select a passage in the PDF and choose Highlight.</p>}
 
                     {/* All highlights (other pages) */}
                     {allHighlights.filter((h) => h.page !== currentPage).length > 0 && (
@@ -869,115 +747,16 @@ export default function SubjectWorkspacePage() {
                   </div>
                 )}
               </div>
-            </div>
+            </aside>
           </>
         )}
       </div>
 
-      {/* ── Videos / Mocks (below reader) ── */}
-      {!audioOnlyMode && subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
-        <div className="shrink-0 border-t border-white/10 px-3 pb-4 pt-3 sm:px-6">
-          <div className="mx-auto max-w-[1200px]">
-            {/* Search for resources */}
-            {(relatedVideos.length > 0 || relatedMocks.length > 0) && (
-              <div className="mb-3">
-                <input
-                  value={workspaceQuery}
-                  onChange={(e) => setWorkspaceQuery(e.target.value)}
-                  placeholder="Search videos, audios, mocks..."
-                  className="w-full max-w-xs rounded-lg border border-white/15 bg-[#0d1514] px-2.5 py-1.5 text-xs text-white placeholder:text-white/30"
-                />
-              </div>
-            )}
-
-            {filteredVideos.length > 0 && selectedVideo ? (
-              <section className="mb-4 rounded-xl border border-white/10 bg-[#0d1514] p-3 sm:p-4">
-                <h2 className="mb-2 text-sm font-semibold text-white">Video Lessons</h2>
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                    <video
-                      key={selectedVideo.id}
-                      src={selectedVideo.fileUrl}
-                      controls
-                      preload="metadata"
-                      className="aspect-video w-full bg-black"
-                    />
-                    <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2">
-                      <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
-                      {selectedVideo.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-white/55">{selectedVideo.description}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="max-h-[300px] space-y-1.5 overflow-auto rounded-lg border border-white/10 bg-[#0a1110] p-2">
-                    {filteredVideos.map((video, index) => {
-                      const isActive = video.id === selectedVideoId;
-                      return (
-                        <button
-                          key={video.id}
-                          type="button"
-                          onClick={() => setSelectedVideoId(video.id)}
-                          className={`w-full rounded-md border px-2.5 py-1.5 text-left text-xs transition ${
-                            isActive
-                              ? "border-[#26d9c0]/50 bg-[#26d9c0]/10"
-                              : "border-white/10 bg-white/[0.03] hover:bg-white/5"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <p className="line-clamp-2 font-medium text-white">
-                              {index + 1}. {video.title}
-                            </p>
-                            {video.durationSeconds ? (
-                              <span className="shrink-0 text-[10px] text-white/50">{fmtTime(video.durationSeconds)}</span>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </section>
-            ) : null}
-
-            {filteredMocks.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {filteredMocks.slice(0, 3).map((mock) => (
-                  <Link
-                    key={mock.id}
-                    href={`/mocks/${mock.id}?mode=practice`}
-                    className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
-                  >
-                    Practice: {mock.title}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Mobile floating panel toggle */}
-      {!isDesktop && (
-        <button
-          type="button"
-          onClick={() => setShowPanel((v) => !v)}
-          title="Notes & highlights"
-          className={`fixed bottom-[calc(88px+env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-12 items-center gap-2 rounded-full border px-3 shadow-lg backdrop-blur lg:hidden ${
-            showPanel
-              ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#6cf4e0]"
-              : "border-white/20 bg-[#0d1514]/90 text-white/80"
-          }`}
-        >
-          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span className="text-xs font-medium">Notes</span>
-        </button>
-      )}
-
-      {/* ── Audio footer (unchanged) ── */}
+      {/* The audio player stays mounted while the reader tray is collapsed. */}
+      {(selectedAudio || audioOnlyMode) && <details open={audioOnlyMode || undefined} className="shrink-0 border-t border-white/10 bg-[#101b19]">
+        <summary className="cursor-pointer list-none truncate px-4 py-2 text-xs font-medium text-white/75 hover:text-white">Audio lesson <span className="ml-2 text-white/45">{selectedAudio?.title}</span></summary>
       <footer
-        className="sticky bottom-0 z-30 shrink-0 border-t border-white/10 bg-[#0f1716]/97 px-3 pt-2 backdrop-blur sm:px-6"
+        className="shrink-0 px-3 pt-2 sm:px-6"
         style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
       >
         {selectedAudio ? (
@@ -997,7 +776,6 @@ export default function SubjectWorkspacePage() {
                   type="button"
                   onClick={() => {
                     setShowAudioPicker((v) => !v);
-                    setShowHeaderAudioPicker(false);
                   }}
                   aria-expanded={showAudioPicker}
                   aria-haspopup="listbox"
@@ -1118,6 +896,91 @@ export default function SubjectWorkspacePage() {
           </div>
         )}
       </footer>
+      </details>}
+      </div>
+      {/* ── Videos / Mocks (below reader) ── */}
+      {!audioOnlyMode && subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
+        <div className="shrink-0 border-t border-white/10 px-3 pb-4 pt-3 sm:px-6">
+          <div className="mx-auto max-w-[1200px]">
+            {/* Search for resources */}
+            {(relatedVideos.length > 0 || relatedMocks.length > 0) && (
+              <div className="mb-3">
+                <input
+                  value={workspaceQuery}
+                  onChange={(e) => setWorkspaceQuery(e.target.value)}
+                  placeholder="Search videos, audios, mocks..."
+                  className="w-full max-w-xs rounded-lg border border-white/15 bg-[#0d1514] px-2.5 py-1.5 text-xs text-white placeholder:text-white/30"
+                />
+              </div>
+            )}
+
+            {filteredVideos.length > 0 && selectedVideo ? (
+              <section className="mb-4 rounded-xl border border-white/10 bg-[#0d1514] p-3 sm:p-4">
+                <h2 className="mb-2 text-sm font-semibold text-white">Video Lessons</h2>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                    <video
+                      key={selectedVideo.id}
+                      src={selectedVideo.fileUrl}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full bg-black"
+                    />
+                    <div className="border-t border-white/10 bg-white/[0.03] px-3 py-2">
+                      <p className="truncate text-sm font-medium text-white">{selectedVideo.title}</p>
+                      {selectedVideo.description ? (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-white/55">{selectedVideo.description}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="max-h-[300px] space-y-1.5 overflow-auto rounded-lg border border-white/10 bg-[#0a1110] p-2">
+                    {filteredVideos.map((video, index) => {
+                      const isActive = video.id === selectedVideoId;
+                      return (
+                        <button
+                          key={video.id}
+                          type="button"
+                          onClick={() => setSelectedVideoId(video.id)}
+                          className={`w-full rounded-md border px-2.5 py-1.5 text-left text-xs transition ${
+                            isActive
+                              ? "border-[#26d9c0]/50 bg-[#26d9c0]/10"
+                              : "border-white/10 bg-white/[0.03] hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="line-clamp-2 font-medium text-white">
+                              {index + 1}. {video.title}
+                            </p>
+                            {video.durationSeconds ? (
+                              <span className="shrink-0 text-[10px] text-white/50">{fmtTime(video.durationSeconds)}</span>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {filteredMocks.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {filteredMocks.slice(0, 3).map((mock) => (
+                  <Link
+                    key={mock.id}
+                    href={`/mocks/${mock.id}?mode=practice`}
+                    className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                  >
+                    Practice: {mock.title}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+
     </div>
   );
 }
