@@ -100,7 +100,8 @@ export default function SubjectWorkspacePage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLoadError, setPdfLoadError] = useState<PdfLoadError | null>(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
-  const [pdfProgress, setPdfProgress] = useState("Checking book access…");
+  const [pdfProgress, setPdfProgress] = useState<{ received: number; total?: number } | null>(null);
+  const [studyLoading, setStudyLoading] = useState(false);
   const [viewerAnnotationsJson, setViewerAnnotationsJson] = useState("");
   const [studyReloadKey, setStudyReloadKey] = useState(0);
   const [saveRetryKey, setSaveRetryKey] = useState(0);
@@ -185,16 +186,12 @@ export default function SubjectWorkspacePage() {
       }
 
       setPdfLoading(true);
+      setPdfProgress(null);
       setPdfLoadError(null);
       try {
         const blob = await downloadBookPdf(relatedBookId, (refresh) => user.getIdToken(refresh), controller.signal, (progress) => {
           if (cancelled) return;
-          if (progress.stage === "source") setPdfProgress("Finding your book…");
-          else {
-            const mb = ((progress.received || 0) / 1024 / 1024).toFixed(1);
-            const total = progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : " MB";
-            setPdfProgress(`Downloading PDF: ${mb}${total}`);
-          }
+          setPdfProgress(progress.stage === "download" ? { received: progress.received ?? 0, total: progress.total } : null);
         });
         if (cancelled) return;
         const nextUrl = URL.createObjectURL(blob);
@@ -240,6 +237,7 @@ export default function SubjectWorkspacePage() {
   useEffect(() => {
     if (!studyKey) {
       setLoadedStudyKey(null);
+      setStudyLoading(false);
       setViewerAnnotationsJson("");
       setCurrentPage(1);
       setBookmarks([]);
@@ -248,13 +246,14 @@ export default function SubjectWorkspacePage() {
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const load = async () => {
       setLoadedStudyKey(null);
       setPdfMessage(null);
+      setStudyLoading(true);
       try {
-        const saved = (await studentApi.getPdfState(relatedBookId)) as PdfStudyState | null;
-        if (cancelled) return;
+        const saved = (await studentApi.getPdfState(relatedBookId, controller.signal)) as PdfStudyState | null;
+        if (controller.signal.aborted) return;
         if (saved) {
           setViewerAnnotationsJson(saved.viewerAnnotationsJson || "");
           if (!readingStarted.current) setCurrentPage(saved.currentPage || 1);
@@ -270,13 +269,15 @@ export default function SubjectWorkspacePage() {
         }
         setPdfMessage(null);
         setLoadedStudyKey(studyKey);
-      } catch {
-        if (!cancelled) setPdfMessage("Your saved study tools are temporarily unavailable. You can still read the book.");
+      } catch (error) {
+        if (!controller.signal.aborted) setPdfMessage(error instanceof Error ? error.message : "Saved study tools could not be loaded.");
+      } finally {
+        if (!controller.signal.aborted) setStudyLoading(false);
       }
     };
     void load();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [relatedBookId, studyKey, studyReloadKey]);
 
@@ -455,7 +456,8 @@ export default function SubjectWorkspacePage() {
         )}
       </header>
 
-      {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage} <button type="button" className="ml-2 underline" onClick={() => pdfReady ? setSaveRetryKey((prev) => prev + 1) : setStudyReloadKey((prev) => prev + 1)}>Retry notes</button></p> : null}
+      {!audioOnlyMode && studyLoading && pdfUrl && <p role="status" className="shrink-0 bg-[#172522] px-4 py-1.5 text-xs text-white/75">Loading your saved notes, highlights, and bookmarks…</p>}
+      {!audioOnlyMode && pdfMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1.5 text-xs text-amber-300">{pdfMessage} {!pdfReady && "You can continue reading."} <button type="button" className="ml-2 underline" onClick={() => pdfReady ? setSaveRetryKey((prev) => prev + 1) : setStudyReloadKey((prev) => prev + 1)}>Retry notes</button></p> : null}
       {audioMessage ? <p className="shrink-0 bg-amber-900/30 px-4 py-1 text-xs text-amber-300">{audioMessage}</p> : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -530,7 +532,8 @@ export default function SubjectWorkspacePage() {
           ) : subject && relatedBook ? (
             <PdfFeedback
               error={pdfLoadError}
-              message={pdfLoading ? pdfProgress : "Preparing your PDF…"}
+              message={pdfProgress ? "Downloading your book…" : pdfLoading ? "Finding your book…" : "Preparing your PDF…"}
+              progress={pdfProgress ?? undefined}
               onRetry={pdfLoadError ? () => setPdfReloadKey((prev) => prev + 1) : undefined}
             />
           ) : subject ? (
@@ -765,8 +768,8 @@ export default function SubjectWorkspacePage() {
         )}
       </div>
 
-      {/* The audio player stays mounted while the reader tray is collapsed. */}
-      {(selectedAudio || audioOnlyMode) && <details open={audioOnlyMode || undefined} className="shrink-0 border-t border-white/10 bg-[#101b19]">
+      {/* The audio player stays mounted when the reader tray is collapsed. */}
+      {(selectedAudio || audioOnlyMode) && <details open className="shrink-0 border-t border-white/10 bg-[#101b19]">
         <summary className="cursor-pointer list-none truncate px-4 py-2 text-xs font-medium text-white/75 hover:text-white">Audio lesson <span className="ml-2 text-white/45">{selectedAudio?.title}</span></summary>
       <footer
         className="shrink-0 px-3 pt-2 sm:px-6"

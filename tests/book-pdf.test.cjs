@@ -176,6 +176,7 @@ test('annotation saves keep viewer JSON and existing notes and bookmarks togethe
   class NextResponse extends Response { static json(data, options) {return new NextResponse(JSON.stringify(data), options);} }
   const state = load('app/api/student/pdf/[bookId]/route.ts', {
     'next/server': {NextResponse},
+    'node:crypto': {randomUUID: () => 'test-request-id'},
     '../../_lib/auth': {verifyStudentRequest: async () => ({uid: 'student'})},
     '@/lib/firebase-admin': {adminDb: {collection: () => ({doc: () => ({set: async data => {saved = data;}})})}},
   });
@@ -188,4 +189,28 @@ test('annotation saves keep viewer JSON and existing notes and bookmarks togethe
   assert.equal(saved.userId, 'student');
   const invalid = await state.PUT({json: async () => ({viewerAnnotationsJson: '{bad'})}, {params: Promise.resolve({bookId: 'book'})});
   assert.equal(invalid.status, 400);
+});
+
+test('notes refresh the session on an expired token and preserve the saved state', async () => {
+  const refreshes = [];
+  const {studentApi} = load('lib/services/student-api.ts', {
+    '@/lib/firebase': {auth: {currentUser: {getIdToken: async refresh => { refreshes.push(refresh); return 'token'; }}}},
+  }, {fetch: async () => refreshes.length === 1 ? new Response(null, {status: 401}) : Response.json({id: 'saved', notes: [{text: 'Existing note'}]})});
+  const result = await studentApi.getPdfState('book');
+  assert.deepEqual(refreshes, [false, true]);
+  assert.equal(result.notes[0].text, 'Existing note');
+});
+
+test('a Firestore read timeout returns a retryable status with a support reference', async () => {
+  class NextResponse extends Response { static json(data, options) {return new NextResponse(JSON.stringify(data), options);} }
+  const {GET} = load('app/api/student/pdf/[bookId]/route.ts', {
+    'next/server': {NextResponse},
+    'node:crypto': {randomUUID: () => 'test-request-id'},
+    '../../_lib/auth': {verifyStudentRequest: async () => ({uid: 'student'})},
+    '@/lib/firebase-admin': {adminDb: {collection: () => ({doc: () => ({get: async () => {throw Object.assign(new Error('internal Firestore message'), {code: 4});}})})}},
+  });
+  const response = await GET({}, {params: Promise.resolve({bookId: 'book'})});
+  assert.equal(response.status, 504);
+  assert.equal(response.headers.get('X-Request-Id'), 'test-request-id');
+  assert.doesNotMatch(await response.text(), /internal Firestore message/);
 });

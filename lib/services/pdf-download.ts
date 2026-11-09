@@ -5,10 +5,12 @@ type Progress = { stage: "source" | "download"; attempt: number; received?: numb
 async function readPdf(response: Response, progress: (received: number, total?: number) => void) {
   if (!response.ok) throw await pdfResponseError(response, "download");
   if (!response.body) throw new PdfLoadError("The server returned an empty PDF response.", "PDF_EMPTY", "download", true);
-  const total = Number(response.headers.get("Content-Length")) || undefined;
+  const length = Number(response.headers.get("Content-Length"));
+  const total = Number.isSafeInteger(length) && length > 0 && !response.headers.get("Content-Encoding") ? length : undefined;
   const reader = response.body.getReader();
   const chunks: Uint8Array<ArrayBuffer>[] = [];
   let received = 0;
+  progress(received, total);
   try {
     while (true) {
       const { done, value } = await reader.read();
