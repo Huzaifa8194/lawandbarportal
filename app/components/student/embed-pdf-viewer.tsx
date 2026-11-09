@@ -22,6 +22,7 @@ export type StudyPdfPaneProps = {
   onLegacyHighlightDelete: (id: string) => void;
   mobileToolbarAddon?: ReactNode;
   onRetry: () => void;
+  studyReadOnly?: boolean;
 };
 
 export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
@@ -63,8 +64,9 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     spread: { defaultSpreadMode: SpreadMode.None },
     zoom: { defaultZoomLevel: ZoomMode.FitPage },
     disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form", "scroll", "spread", "navigation"],
+    permissions: props.studyReadOnly ? { overrides: { modifyAnnotations: false, modifyContents: false } } : undefined,
     annotations: { annotationAuthor: "Student" },
-  }), []);
+  }), [props.studyReadOnly]);
 
   const goToPage = useCallback((page: number) => {
     const total = scrollRef.current?.getTotalPages() || latest.current.totalPages || 1;
@@ -140,7 +142,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
           if (opened.current) latest.current.onPageChange?.(event.pageNumber);
         }),
         annotations.onAnnotationEvent((event) => {
-          if (syncing.current || !initialDataRestored.current || event.type === "loaded") return;
+          if (latest.current.studyReadOnly || syncing.current || !initialDataRestored.current || event.type === "loaded") return;
           if (event.type === "delete" && event.annotation.id.startsWith("portal-legacy-")) latest.current.onLegacyHighlightDelete(event.annotation.id.slice("portal-legacy-".length));
           // Plain annotation objects contain geometry and comments. Binary stamp
           // tools are disabled; JSON avoids Firestore's nested-array limitation.
@@ -226,7 +228,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
         <button type="button" aria-label="Next PDF page" aria-keyshortcuts="ArrowRight PageDown" disabled={!loaded || props.currentPage >= (props.totalPages || 1)} onClick={() => goToPage(props.currentPage + 1)} className="grid size-10 place-items-center rounded-lg border border-white/15 text-lg text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-30">→</button>
       </nav>
       <div className="flex items-center gap-2">
-        <button type="button" disabled={!loaded || noteOpen} onClick={() => void startNote()} className="min-h-10 rounded-lg bg-[#8ed9c9]/12 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#8ed9c9]/20 disabled:opacity-40">Add note</button>
+        <button type="button" disabled={!loaded || noteOpen || props.studyReadOnly} onClick={() => void startNote()} className="min-h-10 rounded-lg bg-[#8ed9c9]/12 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#8ed9c9]/20 disabled:opacity-40">Add note</button>
         <span className="lg:hidden">{props.mobileToolbarAddon}</span>
       </div>
     </div>

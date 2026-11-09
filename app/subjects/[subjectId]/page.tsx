@@ -10,7 +10,7 @@ import StudyPdfPane from "@/app/components/student/study-pdf-pane";
 import PdfFeedback from "@/app/components/student/pdf-feedback";
 import { viewerStudyItems } from "@/lib/pdf-annotations";
 import { downloadBookPdf } from "@/lib/services/pdf-download";
-import { describePdfError, PdfLoadError } from "@/lib/pdf-errors";
+import { describePdfError, type PdfLoadError } from "@/lib/pdf-errors";
 import StudentAssistant from "@/app/components/student-assistant";
 import { usePortalLiveData } from "../../lib/use-portal-live";
 import { useAuth } from "../../context/auth-context";
@@ -91,9 +91,12 @@ export default function SubjectWorkspacePage() {
   const [bookmarks, setBookmarks] = useState<Array<{ id: string; page: number; label: string }>>([]);
   const [notes, setNotes] = useState<PdfNote[]>([]);
   const [highlights, setHighlights] = useState<PdfHighlight[]>([]);
-  const [pdfReady, setPdfReady] = useState(false);
+  const studyKey = user && relatedBookId ? JSON.stringify([user.uid, relatedBookId]) : null;
+  const [loadedStudyKey, setLoadedStudyKey] = useState<string | null>(null);
+  const pdfReady = studyKey !== null && loadedStudyKey === studyKey;
+  const readingStarted = useRef(false);
   const [pdfMessage, setPdfMessage] = useState<string | null>(null);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<{ key: string; url: string } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLoadError, setPdfLoadError] = useState<PdfLoadError | null>(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
@@ -164,21 +167,21 @@ export default function SubjectWorkspacePage() {
     const controller = new AbortController();
 
     const loadPdfBlob = async () => {
-      if (!relatedBookId) {
+      if (!studyKey) {
         setPdfLoading(false);
         setPdfLoadError(null);
         if (pdfBlobRef.current) {
           URL.revokeObjectURL(pdfBlobRef.current);
           pdfBlobRef.current = null;
         }
-        setPdfBlobUrl(null);
+        setPdfFile(null);
         return;
       }
       if (!user) return;
       if (pdfBlobRef.current) {
         URL.revokeObjectURL(pdfBlobRef.current);
         pdfBlobRef.current = null;
-        setPdfBlobUrl(null);
+        setPdfFile(null);
       }
 
       setPdfLoading(true);
@@ -197,7 +200,7 @@ export default function SubjectWorkspacePage() {
         const nextUrl = URL.createObjectURL(blob);
         if (pdfBlobRef.current) URL.revokeObjectURL(pdfBlobRef.current);
         pdfBlobRef.current = nextUrl;
-        setPdfBlobUrl(nextUrl);
+        setPdfFile({ key: studyKey, url: nextUrl });
       } catch (error) {
         if (!cancelled) setPdfLoadError(describePdfError(error));
       } finally {
@@ -210,11 +213,13 @@ export default function SubjectWorkspacePage() {
       cancelled = true;
       controller.abort();
     };
-  }, [relatedBookId, user, pdfReloadKey]);
+  }, [relatedBookId, studyKey, user, pdfReloadKey]);
 
   useEffect(() => {
     setPdfNumPages(null);
-  }, [relatedBookId]);
+    setCurrentPage(1);
+    readingStarted.current = false;
+  }, [studyKey]);
 
   useEffect(() => {
     if (pdfNumPages != null && currentPage > pdfNumPages) {
@@ -233,8 +238,8 @@ export default function SubjectWorkspacePage() {
 
   // ── PDF study state persistence ──
   useEffect(() => {
-    if (!relatedBook?.id) {
-      setPdfReady(false);
+    if (!studyKey) {
+      setLoadedStudyKey(null);
       setViewerAnnotationsJson("");
       setCurrentPage(1);
       setBookmarks([]);
@@ -245,41 +250,43 @@ export default function SubjectWorkspacePage() {
 
     let cancelled = false;
     const load = async () => {
-      setPdfReady(false);
+      setLoadedStudyKey(null);
+      setPdfMessage(null);
       try {
-        const saved = (await studentApi.getPdfState(relatedBook.id)) as PdfStudyState | null;
+        const saved = (await studentApi.getPdfState(relatedBookId)) as PdfStudyState | null;
         if (cancelled) return;
         if (saved) {
           setViewerAnnotationsJson(saved.viewerAnnotationsJson || "");
-          setCurrentPage(saved.currentPage || 1);
+          if (!readingStarted.current) setCurrentPage(saved.currentPage || 1);
           setBookmarks(Array.isArray(saved.bookmarks) ? saved.bookmarks : []);
           setNotes(Array.isArray(saved.notes) ? saved.notes : []);
           setHighlights(Array.isArray(saved.highlights) ? saved.highlights : []);
         } else {
           setViewerAnnotationsJson("");
-          setCurrentPage(1);
+          if (!readingStarted.current) setCurrentPage(1);
           setBookmarks([]);
           setNotes([]);
           setHighlights([]);
         }
         setPdfMessage(null);
-        setPdfReady(true);
+        setLoadedStudyKey(studyKey);
       } catch {
-        if (!cancelled) setPdfMessage("Saved study notes could not be loaded. Editing is paused to protect your saved work. Retry loading notes.");
+        if (!cancelled) setPdfMessage("Your saved study tools are temporarily unavailable. You can still read the book.");
       }
     };
     void load();
     return () => {
       cancelled = true;
     };
-  }, [relatedBook?.id, studyReloadKey]);
+  }, [relatedBookId, studyKey, studyReloadKey]);
 
   useEffect(() => {
-    if (!relatedBook?.id || !pdfReady) return;
+    if (!relatedBookId || !pdfReady) return;
+    let cancelled = false;
     const timer = setTimeout(() => {
       studentApi
-        .savePdfState(relatedBook.id, {
-          bookId: relatedBook.id,
+        .savePdfState(relatedBookId, {
+          bookId: relatedBookId,
           currentPage,
           bookmarks,
           notes,
@@ -287,11 +294,11 @@ export default function SubjectWorkspacePage() {
           viewerAnnotationsJson,
           updatedAt: new Date().toISOString(),
         })
-        .then(() => setPdfMessage(null))
-        .catch((error: unknown) => setPdfMessage(`Study changes have not been saved: ${error instanceof Error ? error.message : "connection failed"}. Keep this tab open and retry.`));
+        .then(() => { if (!cancelled) setPdfMessage(null); })
+        .catch(() => { if (!cancelled) setPdfMessage("Study changes haven’t been saved. Keep this tab open and retry."); });
     }, 700);
-    return () => clearTimeout(timer);
-  }, [relatedBook?.id, pdfReady, currentPage, bookmarks, notes, highlights, viewerAnnotationsJson, saveRetryKey]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [relatedBookId, studyKey, pdfReady, currentPage, bookmarks, notes, highlights, viewerAnnotationsJson, saveRetryKey]);
 
   // ── Audio state persistence ──
   useEffect(() => {
@@ -358,7 +365,7 @@ export default function SubjectWorkspacePage() {
   };
   const pageHighlights = allHighlights.filter((item) => item.page === currentPage);
   const pageNotes = allNotes.filter((item) => item.page === currentPage);
-  const pdfUrl = relatedBookId ? pdfBlobUrl : null;
+  const pdfUrl = pdfFile?.key === studyKey ? pdfFile.url : null;
   const trackRoot = pathname.startsWith("/books/")
     ? "/books"
     : pathname.startsWith("/audios/")
@@ -438,9 +445,10 @@ export default function SubjectWorkspacePage() {
           <button
             type="button"
             onClick={() => setShowPanel((open) => !open)}
-            aria-expanded={showPanel}
+            disabled={!pdfReady}
+            aria-expanded={showPanel && pdfReady}
             aria-controls="study-panel"
-            className="min-h-10 shrink-0 rounded-lg border border-[#86cfc1]/30 bg-[#86cfc1]/10 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#86cfc1]/20 focus-visible:outline-2 focus-visible:outline-[#86cfc1]"
+            className="min-h-10 shrink-0 rounded-lg border border-[#86cfc1]/30 bg-[#86cfc1]/10 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#86cfc1]/20 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#86cfc1]"
           >
             Study tools
           </button>
@@ -486,18 +494,23 @@ export default function SubjectWorkspacePage() {
                 </div>
               </div>
             </div>
-          ) : subject && relatedBook && pdfUrl && pdfReady ? (
+          ) : subject && relatedBook && pdfUrl ? (
             <StudyPdfPane
+              key={pdfReady ? "study-ready" : "read-only"}
+              studyReadOnly={!pdfReady}
               bookId={relatedBookId}
               pdfBlobUrl={pdfUrl}
               title={relatedBook?.title || "Study Book PDF"}
               currentPage={currentPage}
               totalPages={pdfNumPages}
-              onPageChange={setCurrentPage}
+              onPageChange={(page) => {
+                if (page !== currentPage) readingStarted.current = true;
+                setCurrentPage(page);
+              }}
               onNumPages={setPdfNumPages}
               mobileToolbarAddon={<StudentAssistant inlineMobile />}
-              highlights={highlights}
-              annotationsJson={viewerAnnotationsJson}
+              highlights={pdfReady ? highlights : []}
+              annotationsJson={pdfReady ? viewerAnnotationsJson : ""}
               onAnnotationsChange={setViewerAnnotationsJson}
               onLegacyHighlightDelete={(id) => setHighlights((prev) => prev.filter((highlight) => highlight.id !== id))}
               onRetry={() => setPdfReloadKey((prev) => prev + 1)}
@@ -516,9 +529,9 @@ export default function SubjectWorkspacePage() {
             />
           ) : subject && relatedBook ? (
             <PdfFeedback
-              error={pdfLoadError || (!pdfReady && pdfMessage ? new PdfLoadError(pdfMessage, "PDF_STUDY_LOAD", "save", true) : null)}
-              message={pdfLoading ? pdfProgress : !pdfReady ? "Loading your saved notes and annotations…" : "Preparing your PDF…"}
-              onRetry={!pdfLoading ? () => { setPdfReloadKey((prev) => prev + 1); if (!pdfReady) setStudyReloadKey((prev) => prev + 1); } : undefined}
+              error={pdfLoadError}
+              message={pdfLoading ? pdfProgress : "Preparing your PDF…"}
+              onRetry={pdfLoadError ? () => setPdfReloadKey((prev) => prev + 1) : undefined}
             />
           ) : subject ? (
             <div className="flex flex-1 items-center justify-center p-8 text-sm text-white/50">
@@ -532,7 +545,7 @@ export default function SubjectWorkspacePage() {
         </div>
 
         {/* ── Side panel (desktop: beside PDF, mobile: bottom drawer overlay) ── */}
-        {showPanel && !audioOnlyMode && (
+        {showPanel && !audioOnlyMode && pdfReady && (
           <>
             {/* Mobile backdrop */}
             <button

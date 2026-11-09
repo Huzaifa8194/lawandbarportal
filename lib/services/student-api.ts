@@ -22,9 +22,11 @@ async function request<T>(url: string, method = "GET", body?: unknown, timeoutMs
     body: body ? JSON.stringify(body) : undefined,
     signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
   });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.error || `Request failed (HTTP ${response.status})`);
-  return payload as T;
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.error || `Request failed (HTTP ${response.status})`);
+  }
+  return await response.json() as T;
 }
 
 export const studentApi = {
