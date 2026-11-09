@@ -96,7 +96,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!opened.current) setError(new PdfLoadError("The PDF engine did not finish starting. Retry, or open the downloaded PDF while the viewer is unavailable.", "PDF_ENGINE_TIMEOUT", "render", true));
-    }, 45_000);
+    }, 18_000);
     return () => { clearTimeout(timer); cleanupRef.current.forEach((unsubscribe) => unsubscribe()); cleanupRef.current = []; };
   }, []);
 
@@ -211,7 +211,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
         container.shadowRoot?.appendChild(style);
       }} style={{ width: "100%", height: "100%" }} />
       {(!loaded || error) && <div className="absolute inset-0 z-30 flex bg-[#0b1110]">
-        <PdfFeedback error={error} message="Starting the PDF engine and opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={error ? props.pdfBlobUrl : undefined} />
+        <PdfFeedback error={error} message="Opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={props.pdfBlobUrl} />
       </div>}
     </div>
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/10 bg-[#101b19] px-3 py-1.5 sm:px-5">

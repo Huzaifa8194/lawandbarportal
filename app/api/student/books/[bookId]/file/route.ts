@@ -21,7 +21,7 @@ function storageLocation(fileUrl: unknown, filePath: unknown) {
   return typeof filePath === "string" && configured ? { bucket: configured, path: filePath } : null;
 }
 
-async function bounded<T>(operation: Promise<T>, milliseconds = 15_000): Promise<T> {
+async function bounded<T>(operation: Promise<T>, milliseconds = 8_000): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   try {
     return await Promise.race([operation, new Promise<never>((_, reject) => {
@@ -40,21 +40,25 @@ async function pdfStream(source: Readable, signal: AbortSignal) {
   const iterator = source[Symbol.asyncIterator]();
   const chunks: Buffer[] = [];
   let size = 0;
+  const openingTimer = setTimeout(() => source.destroy(new Error("PDF storage did not send data in time")), 7_000);
   try {
-    while (size < 5) {
+    let valid = false;
+    while (size < 1024) {
       const chunk = await iterator.next();
       if (chunk.done) break;
       const buffer = Buffer.from(chunk.value);
       chunks.push(buffer);
       size += buffer.length;
+      valid = Buffer.concat(chunks, Math.min(size, 1024)).includes("%PDF-");
+      if (valid) break;
     }
-    if (Buffer.concat(chunks).subarray(0, 5).toString() !== "%PDF-") {
-      throw new Error("Invalid PDF file");
-    }
+    if (!valid) throw new Error("Invalid PDF file");
   } catch (error) {
     signal.removeEventListener("abort", abort);
     source.destroy();
     throw error;
+  } finally {
+    clearTimeout(openingTimer);
   }
   const cleanup = () => {
     signal.removeEventListener("abort", abort);
@@ -103,7 +107,11 @@ export async function GET(
     const location = storageLocation(book.fileUrl, book.filePath);
     if (request.nextUrl.searchParams.get("source") === "1") {
       let url: string | undefined;
-      if (location) {
+      if (typeof book.fileUrl === "string" && book.fileUrl.startsWith("https://")) {
+        // Admin uploads already persist a Firebase download URL. Do not put a
+        // second Storage RPC between the student and that URL.
+        url = book.fileUrl;
+      } else if (location) {
         try {
           const file = adminStorage.bucket(location.bucket).file(location.path);
           const [metadata] = await bounded(file.getMetadata());
@@ -117,22 +125,20 @@ export async function GET(
           const code = (error as {code?: unknown})?.code;
           console.error("PDF source resolution failed", { requestId, code, bucket: location.bucket, path: location.path });
           if (code === 404) throw new PdfLoadError("The PDF file is missing from storage. Please ask support to re-upload this book.", "PDF_FILE_MISSING", "source", false, requestId, 404);
-          // Existing download tokens can still work when Admin metadata/signing
-          // permission is unavailable. The proxy remains the second transport.
-          if (typeof book.fileUrl === "string") url = book.fileUrl;
+          // The authenticated proxy can read the object without a signed URL.
         }
-      } else if (typeof book.fileUrl === "string") {
-        url = book.fileUrl;
       }
       if (!url && !location) throw new PdfLoadError("No PDF file is attached to this book. Please contact support.", "PDF_SOURCE_MISSING", "source", false, requestId, 404);
       return NextResponse.json({ url, requestId }, { headers: { "Cache-Control": "private, no-store", "X-Request-Id": requestId } });
     }
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(110_000)]);
     let stream: ReadableStream<Uint8Array> | undefined;
+    let storageError: unknown;
     if (location) {
       try {
         stream = await pdfStream(adminStorage.bucket(location.bucket).file(location.path).createReadStream(), signal);
       } catch (error) {
+        storageError = error;
         console.error("PDF storage stream failed", { requestId, bookId, message: error instanceof Error ? error.message : "Storage error" });
       }
     }
@@ -144,7 +150,10 @@ export async function GET(
       }
       stream = await pdfStream(Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]), signal);
     }
-    if (!stream) throw new PdfLoadError("No readable PDF file is available for this book. Please contact support.", "PDF_SOURCE_MISSING", "source", false, requestId, 404);
+    if (!stream) {
+      if (storageError && (storageError as { code?: unknown }).code !== 404) throw storageError;
+      throw new PdfLoadError("No readable PDF file is available for this book. Please contact support.", "PDF_SOURCE_MISSING", "source", false, requestId, 404);
+    }
     const filename = String(book.title || "book").replace(/[<>:"/\\|?*\u0000-\u001F]/g, "").trim() || "book";
     return new NextResponse(stream, {
       headers: {

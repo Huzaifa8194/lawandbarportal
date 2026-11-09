@@ -1,4 +1,4 @@
-const CACHE_NAME = "law-and-bar-v2";
+const CACHE_NAME = "law-and-bar-v3";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -21,8 +21,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  if (event.request.url.includes("/api/")) return;
-  if (!event.request.url.startsWith("http://") && !event.request.url.startsWith("https://")) return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/vendor/embedpdf/") || event.request.cache === "no-store" || event.request.headers.has("Range")) return;
 
   event.respondWith(
     fetch(event.request)

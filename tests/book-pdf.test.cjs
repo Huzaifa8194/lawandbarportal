@@ -73,18 +73,20 @@ test('client disconnect destroys the source stream', async () => {
 });
 
 
-test('source uses bucket and object encoded in Firebase URL and refreshes stale tokens', async () => {
+test('an admin-uploaded URL resolves without a Storage metadata lookup', async () => {
   const r = route({fileUrl: 'https://firebasestorage.googleapis.com/v0/b/actual-bucket/o/books%2Fa.pdf?alt=media&token=stale'});
   const response = await r.get(true);
   const payload = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(r.buckets[0], 'actual-bucket');
-  assert.match(payload.url, /token=fresh-token/);
+  assert.deepEqual(r.buckets, []);
+  assert.match(payload.url, /token=stale/);
   assert.equal(payload.requestId, 'test-request-id');
   assert.match(response.headers.get('cache-control'), /no-store/);
+  assert.equal(await (await r.get()).text(), '%PDF-1.7\nbook');
+  assert.deepEqual(r.buckets, ['actual-bucket']);
 });
 test('missing storage files return a diagnostic with reference and do not retry', async () => {
-  const r = route({metadataError: {code: 404}});
+  const r = route({fileUrl: '', metadataError: {code: 404}});
   const response = await r.get(true);
   const error = await response.json();
   assert.equal(response.status, 404);
@@ -98,9 +100,23 @@ test('expired Firebase token is 401, not a server or permission error', async ()
   assert.equal(response.status, 401);
   assert.equal((await response.json()).code, 'PDF_SESSION_EXPIRED');
 });
-function downloader(fetcher) {
-  return load('lib/services/pdf-download.ts', {'@/lib/pdf-errors': errors}, {fetch: fetcher, Blob}).downloadBookPdf;
+function downloader(fetcher, globals = {}) {
+  return load('lib/services/pdf-download.ts', {'@/lib/pdf-errors': errors}, {fetch: fetcher, Blob, AbortController, ...globals}).downloadBookPdf;
 }
+test('an idle direct transfer after the first bytes switches to the authenticated proxy', async () => {
+  let cancelled = false;
+  const download = downloader(async url => {
+    if (url.endsWith('?source=1')) return Response.json({url: 'https://storage.test/book'});
+    if (url === 'https://storage.test/book') return new Response(new ReadableStream({
+      start(controller) { controller.enqueue(Buffer.from('%PDF-')); },
+      cancel() { cancelled = true; },
+    }));
+    return new Response('%PDF-proxy');
+  }, {setTimeout: (callback, delay) => setTimeout(callback, delay === 12_000 ? 25 : delay)});
+  const blob = await download('book', async () => 'token', new AbortController().signal, () => {});
+  assert.equal(await blob.text(), '%PDF-proxy');
+  assert.equal(cancelled, true);
+});
 test('direct storage downloads report progress and avoid the proxy', async () => {
   const calls = [], progress = [];
   const download = downloader(async url => {

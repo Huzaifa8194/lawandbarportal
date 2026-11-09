@@ -32,8 +32,8 @@ export default function SubjectWorkspacePage() {
   const params = useParams<{ subjectId: string }>();
   const pathname = usePathname();
   const audioOnlyMode = pathname.startsWith("/audios/");
-  const { user } = useAuth();
-  const { subjects, books, audios, videos, mocks, loading } = usePortalLiveData({ includeAttempts: false });
+  const { user, loading: authLoading } = useAuth();
+  const { subjects, books, audios, videos, mocks, loading, catalogError, retryCatalog } = usePortalLiveData({ includeAttempts: false, catalogOnlyLoading: !audioOnlyMode });
   const subject = subjects.find((item) => item.id === params.subjectId);
 
   const booksForSubject = useMemo(() => {
@@ -91,7 +91,7 @@ export default function SubjectWorkspacePage() {
   const [bookmarks, setBookmarks] = useState<Array<{ id: string; page: number; label: string }>>([]);
   const [notes, setNotes] = useState<PdfNote[]>([]);
   const [highlights, setHighlights] = useState<PdfHighlight[]>([]);
-  const studyKey = user && relatedBookId ? JSON.stringify([user.uid, relatedBookId]) : null;
+  const studyKey = !audioOnlyMode && user && relatedBookId ? JSON.stringify([user.uid, relatedBookId]) : null;
   const [loadedStudyKey, setLoadedStudyKey] = useState<string | null>(null);
   const pdfReady = studyKey !== null && loadedStudyKey === studyKey;
   const readingStarted = useRef(false);
@@ -387,7 +387,8 @@ export default function SubjectWorkspacePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f1716] p-6">
         <div className="max-w-md rounded-2xl border border-amber-400/40 bg-amber-500/10 p-6 text-center text-sm text-amber-100">
-          Subject not found or not published.
+          {catalogError ? "The book catalog could not be loaded." : "Subject not found or not published."}
+          {catalogError && <button type="button" onClick={retryCatalog} className="mt-3 block underline">Retry catalog</button>}
           <Link href="/subjects/flk1" className="mt-3 block text-[#26d9c0] underline">
             Back to subjects
           </Link>
@@ -529,10 +530,15 @@ export default function SubjectWorkspacePage() {
                 ]);
               }}
             />
+          ) : subject && relatedBook && !user && !authLoading ? (
+            <div className="grid flex-1 place-content-center gap-3 p-6 text-center">
+              <p>Sign in to open this book.</p>
+              <Link href="/auth/login" className="text-[#8ed9c9] underline">Sign in</Link>
+            </div>
           ) : subject && relatedBook ? (
             <PdfFeedback
               error={pdfLoadError}
-              message={pdfProgress ? "Downloading your book…" : pdfLoading ? "Finding your book…" : "Preparing your PDF…"}
+              message={pdfProgress ? "Downloading your book…" : pdfLoading ? "Finding your book…" : authLoading && !user ? "Checking your session…" : "Preparing your PDF…"}
               progress={pdfProgress ?? undefined}
               onRetry={pdfLoadError ? () => setPdfReloadKey((prev) => prev + 1) : undefined}
             />

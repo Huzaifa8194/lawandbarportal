@@ -118,6 +118,10 @@ export default function AdminBooksPage() {
       let fileUrl = "";
       let filePath = "";
       if (selectedFile) {
+        if (!(await selectedFile.slice(0, 1024).text()).includes("%PDF-")) {
+          setFeedback({ type: "error", message: "Choose a valid PDF file before saving this book." });
+          return;
+        }
         const uploaded = await uploadPortalFile("sqe/books", selectedFile);
         fileUrl = uploaded.url;
         filePath = uploaded.path;
