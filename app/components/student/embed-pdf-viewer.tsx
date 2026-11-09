@@ -1,11 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, ScrollStrategy, SpreadMode, UIPlugin, ZoomMode, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
+import { PDFViewer, version as embedPdfVersion, AnnotationPlugin, DocumentManagerPlugin, ScrollPlugin, SelectionPlugin, ScrollStrategy, SpreadMode, UIPlugin, ViewportPlugin, ZoomPlugin, ZoomMode, type PluginRegistry, type PDFViewerConfig, type AnnotationCapability, type ScrollCapability } from "@embedpdf/react-pdf-viewer";
 import { PdfLoadError } from "@/lib/pdf-errors";
 import { restoreViewerAnnotations } from "@/lib/pdf-annotations";
 import type { PdfHighlight } from "@/lib/types/student";
 import PdfFeedback from "./pdf-feedback";
+
+// EmbedPDF's horizontal scroller measures pages from their left edge. Move
+// only the painted page, keeping its measured position for paging and search.
+const readerViewport = '.embedpdf-snippet-root .bg-bg-app[style*="overflow: auto"]';
+const readerStrip = `${readerViewport} div[style*="margin:"][style*="flex-direction: row"]`;
+const readerPages = `${readerStrip} > div:nth-child(2) > div`;
+const readerLayout = `
+  ${readerViewport} { container-type: inline-size; overflow-x: hidden !important; overscroll-behavior: contain; }
+  ${readerViewport} > div:has(> div[style*="flex-direction: row"]) { margin-inline: 0 !important; }
+  ${readerStrip} { margin: 0 !important; }
+  ${readerStrip}::after { content: ""; position: absolute; left: 100%; top: 0; width: 100cqw; height: 1px; pointer-events: none; }
+  ${readerPages} > div { translate: max(0px, calc(50cqw - 50%)) 0; box-shadow: 0 4px 18px #080d0b55; }
+`;
 
 export type StudyPdfPaneProps = {
   bookId: string;
@@ -38,6 +51,8 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
   const registryRef = useRef<PluginRegistry | null>(null);
   const annotationRef = useRef<AnnotationCapability | null>(null);
   const scrollRef = useRef<ScrollCapability | null>(null);
+  const scrollPluginRef = useRef<ScrollPlugin | null>(null);
+  const pageVisibilityStyle = useRef<HTMLStyleElement | null>(null);
   const cleanupRef = useRef<Array<() => void>>([]);
   const syncing = useRef(false);
   const initialDataRestored = useRef(false);
@@ -61,12 +76,20 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     },
     fonts: { ui: null, signature: null },
     scroll: { defaultStrategy: ScrollStrategy.Horizontal, defaultPageGap: Math.max(window.innerWidth, window.screen.width) + 64, defaultBufferSize: 0 },
+    viewport: { viewportGap: 0 },
     spread: { defaultSpreadMode: SpreadMode.None },
     zoom: { defaultZoomLevel: ZoomMode.FitPage },
     disabledCategories: ["document-open", "document-close", "redaction", "insert", "annotation-stamp", "document-protect", "form", "scroll", "spread", "navigation"],
     permissions: props.studyReadOnly ? { overrides: { modifyAnnotations: false, modifyContents: false } } : undefined,
     annotations: { annotationAuthor: "Student" },
   }), [props.studyReadOnly]);
+
+  const showOnlyPage = useCallback((layout = scrollPluginRef.current?.getScrollerLayout(latest.current.bookId)) => {
+    const style = pageVisibilityStyle.current;
+    if (!style || !layout?.items.length) return;
+    const index = layout.items.findIndex((item) => item.pageNumbers.includes(latest.current.currentPage));
+    style.textContent = index < 0 ? "" : `${readerPages}:not(:nth-child(${index + 1})) { visibility: hidden; }`;
+  }, []);
 
   const goToPage = useCallback((page: number) => {
     const total = scrollRef.current?.getTotalPages() || latest.current.totalPages || 1;
@@ -105,13 +128,39 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     try {
       const documents = registry.getPlugin<DocumentManagerPlugin>("document-manager")?.provides();
       const annotations = registry.getPlugin<AnnotationPlugin>("annotation")?.provides();
-      const scroll = registry.getPlugin<ScrollPlugin>("scroll")?.provides();
+      const scrollPlugin = registry.getPlugin<ScrollPlugin>("scroll");
+      const scroll = scrollPlugin?.provides();
+      const viewport = registry.getPlugin<ViewportPlugin>("viewport")?.provides();
+      const zoom = registry.getPlugin<ZoomPlugin>("zoom")?.provides();
       const ui = registry.getPlugin<UIPlugin>("ui")?.provides();
       const pageControls = ui?.getSchema().overlays?.["page-controls"];
       if (pageControls) ui?.mergeSchema({ overlays: { "page-controls": { ...pageControls, defaultEnabled: false } } });
       if (!documents || !annotations || !scroll) throw new Error("Required viewer plugins are unavailable.");
       annotationRef.current = annotations;
       scrollRef.current = scroll;
+      scrollPluginRef.current = scrollPlugin ?? null;
+      let frame = 0;
+      const recenterAfterLayout = () => {
+        if (!opened.current) return;
+        const page = latest.current.currentPage;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          frame = requestAnimationFrame(() => {
+            if (latest.current.currentPage !== page) return;
+            const root = pageVisibilityStyle.current?.getRootNode();
+            if (!(root instanceof ShadowRoot)) return;
+            const pane = root.querySelector(readerViewport);
+            const paper = Array.from(root.querySelectorAll(`${readerPages} > div`))
+              .find((element) => getComputedStyle(element).visibility === "visible");
+            if (pane && paper && paper.getBoundingClientRect().width <= pane.clientWidth) {
+              scroll.scrollToPage({ pageNumber: page, behavior: "instant" });
+            }
+          });
+        });
+      };
+      if (viewport) cleanupRef.current.push(viewport.onViewportResize(recenterAfterLayout));
+      if (zoom) cleanupRef.current.push(zoom.onZoomChange(recenterAfterLayout));
+      cleanupRef.current.push(() => cancelAnimationFrame(frame));
       cleanupRef.current.push(
         documents.onDocumentError((event) => {
           setError(new PdfLoadError("This PDF could not be displayed. Try opening the downloaded copy.", `PDF_ENGINE_${event.code ?? "OPEN"}`, "render", false));
@@ -120,6 +169,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
           const document = state.document;
           if (!document) return;
           opened.current = true;
+          if (scrollPlugin) cleanupRef.current.push(scrollPlugin.onScrollerData(state.id, showOnlyPage));
           latest.current.onNumPages(document.pageCount);
           syncing.current = true;
           try {
@@ -137,6 +187,7 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
         }),
         scroll.onLayoutReady((event) => {
           if (event.isInitial) scroll.scrollToPage({ pageNumber: latest.current.currentPage, behavior: "instant" });
+          showOnlyPage();
         }),
         scroll.onPageChange((event) => {
           if (opened.current) latest.current.onPageChange?.(event.pageNumber);
@@ -159,12 +210,13 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     } catch {
       setError((previous) => previous ?? new PdfLoadError("The viewer could not open this PDF. Retry or open the downloaded copy.", "PDF_ENGINE_OPEN", "render", true));
     }
-  }, []);
+  }, [showOnlyPage]);
 
   useEffect(() => {
     const scroll = scrollRef.current;
     if (loaded && scroll && scroll.getCurrentPage() !== props.currentPage) scroll.scrollToPage({ pageNumber: props.currentPage, behavior: "instant" });
-  }, [props.currentPage, loaded]);
+    if (loaded) showOnlyPage();
+  }, [props.currentPage, loaded, showOnlyPage]);
 
   useEffect(() => {
     const api = annotationRef.current;
@@ -204,11 +256,10 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
     {annotationError && <p role="alert" className="bg-amber-950 p-3 text-xs text-amber-200">{annotationError}</p>}
     <div className="relative min-h-0 flex-1">
       <PDFViewer config={config} onReady={onReady} onInit={(container) => {
-        // Keep horizontal paging programmatic; vertical scrolling and the hand
-        // tool remain available when zooming. The gutter isolates each page.
         const style = document.createElement("style");
-        style.textContent = '.embedpdf-snippet-root div[style*="overflow: auto"][style*="width: 100%"][style*="height: 100%"] { overflow-x: hidden !important; overscroll-behavior: contain; }';
-        container.shadowRoot?.appendChild(style);
+        style.textContent = readerLayout;
+        pageVisibilityStyle.current = document.createElement("style");
+        container.shadowRoot?.append(style, pageVisibilityStyle.current);
       }} style={{ width: "100%", height: "100%" }} />
       {(!loaded || error) && <div className="absolute inset-0 z-30 flex bg-[#0b1110]">
         <PdfFeedback error={error} message="Opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={props.pdfBlobUrl} />
