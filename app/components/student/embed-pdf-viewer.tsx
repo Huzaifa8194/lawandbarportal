@@ -13,6 +13,8 @@ const readerViewport = '.embedpdf-snippet-root .bg-bg-app[style*="overflow: auto
 const readerStrip = `${readerViewport} div[style*="margin:"][style*="flex-direction: row"]`;
 const readerPages = `${readerStrip} > div:nth-child(2) > div`;
 const readerLayout = `
+  .embedpdf-snippet-root [data-epdf-i="main-toolbar"],
+  .embedpdf-snippet-root .bg-bg-surface-alt.border-b { padding-block: 2px; }
   ${readerViewport} { container-type: inline-size; overflow-x: hidden !important; overscroll-behavior: contain; }
   ${readerViewport} > div:has(> div[style*="flex-direction: row"]) { margin-inline: 0 !important; }
   ${readerStrip} { margin: 0 !important; }
@@ -265,21 +267,21 @@ export default function EmbedPdfViewer(props: StudyPdfPaneProps) {
         <PdfFeedback error={error} message="Opening your downloaded book…" onRetry={error ? props.onRetry : undefined} fileUrl={props.pdfBlobUrl} />
       </div>}
     </div>
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/10 bg-[#101b19] px-3 py-1.5 sm:px-5">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 py-1 sm:px-3">
       <nav aria-label="PDF page navigation" className="flex items-center gap-2 sm:gap-3">
-        <button type="button" aria-label="Previous PDF page" aria-keyshortcuts="ArrowLeft PageUp" disabled={!loaded || props.currentPage <= 1} onClick={() => goToPage(props.currentPage - 1)} className="grid size-10 place-items-center rounded-lg border border-white/15 text-lg text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-30">←</button>
+        <button type="button" aria-label="Previous PDF page" aria-keyshortcuts="ArrowLeft PageUp" disabled={!loaded || props.currentPage <= 1} onClick={() => goToPage(props.currentPage - 1)} className="grid size-8 place-items-center rounded-md border border-white/15 bg-[#101b19] text-base text-white hover:bg-[#354843] focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-40">←</button>
         <form className="flex items-center gap-1 text-xs font-medium tabular-nums text-white/70" onSubmit={(event) => {
           event.preventDefault();
           const page = Number(new FormData(event.currentTarget).get("page"));
           if (Number.isInteger(page) && page > 0) goToPage(page);
         }}>
-          <input key={props.currentPage} name="page" type="number" min={1} max={props.totalPages ?? undefined} defaultValue={props.currentPage} aria-label="Go to PDF page" disabled={!loaded} className="h-10 w-12 rounded-lg bg-white/5 text-center text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+          <input key={props.currentPage} name="page" type="number" min={1} max={props.totalPages ?? undefined} defaultValue={props.currentPage} aria-label="Go to PDF page" disabled={!loaded} className="h-8 w-10 rounded-md bg-[#101b19] text-center text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
           <span aria-live="polite">/ {props.totalPages || "—"}</span>
         </form>
-        <button type="button" aria-label="Next PDF page" aria-keyshortcuts="ArrowRight PageDown" disabled={!loaded || props.currentPage >= (props.totalPages || 1)} onClick={() => goToPage(props.currentPage + 1)} className="grid size-10 place-items-center rounded-lg border border-white/15 text-lg text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-30">→</button>
+        <button type="button" aria-label="Next PDF page" aria-keyshortcuts="ArrowRight PageDown" disabled={!loaded || props.currentPage >= (props.totalPages || 1)} onClick={() => goToPage(props.currentPage + 1)} className="grid size-8 place-items-center rounded-md border border-white/15 bg-[#101b19] text-base text-white hover:bg-[#354843] focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-40">→</button>
       </nav>
       <div className="flex items-center gap-2">
-        <button type="button" disabled={!loaded || noteOpen || props.studyReadOnly} onClick={() => void startNote()} className="min-h-10 rounded-lg bg-[#8ed9c9]/12 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#8ed9c9]/20 disabled:opacity-40">Add note</button>
+        <button type="button" disabled={!loaded || noteOpen || props.studyReadOnly} onClick={() => void startNote()} className="min-h-8 rounded-md border border-[#8ed9c9]/25 bg-[#101b19] px-2.5 text-xs font-semibold text-[#b9eee2] hover:bg-[#354843] focus-visible:outline-2 focus-visible:outline-[#8ed9c9] disabled:opacity-40">Add note</button>
         <span className="lg:hidden">{props.mobileToolbarAddon}</span>
       </div>
     </div>

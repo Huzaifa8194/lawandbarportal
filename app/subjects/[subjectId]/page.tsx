@@ -111,7 +111,7 @@ export default function SubjectWorkspacePage() {
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(relatedAudios[0]?.id ?? null);
   const [showAudioPicker, setShowAudioPicker] = useState(false);
   const [audioPosition, setAudioPosition] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioTrayOpen, setAudioTrayOpen] = useState(true);
   const [audioRate, setAudioRate] = useState(1);
   const [audioReady, setAudioReady] = useState(false);
   const [audioMessage, setAudioMessage] = useState<string | null>(null);
@@ -402,8 +402,8 @@ export default function SubjectWorkspacePage() {
       <div className={audioOnlyMode ? "flex min-h-dvh flex-col" : "flex h-dvh min-h-72 flex-col"}>
       {/* ── Compact header (single row) ── */}
       <header
-        className="z-40 flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-[#101b19] px-3 sm:px-5"
-        style={{ paddingTop: "calc(8px + env(safe-area-inset-top, 0px))", paddingBottom: 10 }}
+        className="z-40 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/10 bg-[#101b19] px-2 sm:px-3"
+        style={{ paddingTop: "calc(3px + env(safe-area-inset-top, 0px))", paddingBottom: 3 }}
       >
         <Link
           href={backTrackHref}
@@ -415,19 +415,19 @@ export default function SubjectWorkspacePage() {
           </svg>
         </Link>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold leading-tight sm:text-base">
+        <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-2">
+          <h1 className="min-w-0 truncate text-sm font-semibold leading-tight">
             {subject?.name || "Study Workspace"}
           </h1>
-          <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
+          <p className="truncate text-[10px] leading-tight text-white/55 sm:text-[11px]">
             {audioOnlyMode
               ? `${subject?.track || "FLK"} · Audio only`
-              : `${subject?.track || "FLK"} · ${relatedBook?.title || "No book"}`}
+              : [subject?.track || "FLK", relatedBook?.title !== subject?.name ? relatedBook?.title : null].filter(Boolean).join(" · ")}
           </p>
         </div>
 
         {/* Book switcher (when multiple books) */}
-        {subject && <Link href={`/flashcards?subject=${encodeURIComponent(subject.id)}`} className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10">Q&A cards</Link>}
+        {subject && <Link href={`/flashcards?subject=${encodeURIComponent(subject.id)}`} className="inline-flex min-h-8 shrink-0 items-center rounded-md border border-white/15 bg-white/5 px-2 text-xs font-medium text-white/80 hover:bg-white/10">Q&A cards</Link>}
         {!audioOnlyMode && booksForSubject.length > 1 && (
           <select
             value={selectedBookId}
@@ -450,7 +450,7 @@ export default function SubjectWorkspacePage() {
             disabled={!pdfReady}
             aria-expanded={showPanel && pdfReady}
             aria-controls="study-panel"
-            className="min-h-10 shrink-0 rounded-lg border border-[#86cfc1]/30 bg-[#86cfc1]/10 px-3 text-xs font-semibold text-[#b9eee2] hover:bg-[#86cfc1]/20 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#86cfc1]"
+            className="min-h-8 shrink-0 rounded-md border border-[#86cfc1]/30 bg-[#86cfc1]/10 px-2 text-xs font-semibold text-[#b9eee2] hover:bg-[#86cfc1]/20 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#86cfc1]"
           >
             Study tools
           </button>
@@ -774,65 +774,39 @@ export default function SubjectWorkspacePage() {
         )}
       </div>
 
-      {/* The audio player stays mounted when the reader tray is collapsed. */}
-      {(selectedAudio || audioOnlyMode) && <details open className="shrink-0 border-t border-white/10 bg-[#101b19]">
-        <summary className="cursor-pointer list-none truncate px-4 py-2 text-xs font-medium text-white/75 hover:text-white">Audio lesson <span className="ml-2 text-white/45">{selectedAudio?.title}</span></summary>
-      <footer
-        className="shrink-0 px-3 pt-2 sm:px-6"
-        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
+      {/* Collapsing the tray leaves playback mounted. */}
+      {(selectedAudio || audioOnlyMode) && <footer
+        className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-white/10 bg-[#101b19] px-2 pt-1 sm:px-3"
+        style={{ paddingBottom: "calc(4px + env(safe-area-inset-bottom, 0px))" }}
       >
-        {selectedAudio ? (
-          <div className="mx-auto flex max-w-[1200px] flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-            <div ref={audioPickerRef} className="relative min-w-0 w-full md:flex-1" data-audio-picker>
-              {/* Mobile: labelled block so it is obvious this is audio lessons and tappable */}
-              <div className="rounded-xl border border-white/12 bg-[#0d1514]/90 p-3 md:border-0 md:bg-transparent md:p-0">
-                <div className="mb-2 flex items-center justify-between md:hidden">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6cf4e0]">
-                    Audios
-                  </span>
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-white/65">
-                    {filteredAudios.length} {filteredAudios.length === 1 ? "lesson" : "lessons"}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAudioPicker((v) => !v);
-                  }}
-                  aria-expanded={showAudioPicker}
-                  aria-haspopup="listbox"
-                  title="Choose a different audio lesson"
-                  className="flex w-full items-center gap-2 rounded-lg border border-white/15 bg-[#0b1110] px-3 py-2.5 text-left transition hover:border-[#26d9c0]/35 hover:bg-[#0f1816] md:border-0 md:bg-transparent md:px-0 md:py-0 md:hover:border-transparent md:hover:bg-transparent"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-white md:hover:text-[#7cfce9]">
-                      {selectedAudio.title}
-                    </span>
-                    <span className="mt-1 block text-[11px] text-white/45 md:hidden">
-                      {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
-                    </span>
-                    <span className="mt-0.5 hidden text-xs text-white/55 md:block">
-                      {fmtTime(audioPosition)} / {fmtTime(audioDuration)}
-                    </span>
-                  </div>
-                  <span
-                    className={`flex size-8 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white/50 md:border-0 md:bg-transparent ${
-                      showAudioPicker ? "text-[#6cf4e0]" : ""
-                    }`}
-                    aria-hidden
-                  >
-                    <svg
-                      className={`size-4 transition-transform ${showAudioPicker ? "rotate-180" : ""}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </span>
-                </button>
-              </div>
+        <button
+          type="button"
+          aria-controls="audio-lesson-controls"
+          aria-expanded={audioTrayOpen}
+          onClick={() => { setAudioTrayOpen((open) => !open); setShowAudioPicker(false); }}
+          className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-xs font-semibold text-white/75 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9]"
+        >
+          <svg aria-hidden="true" className={`size-3 transition-transform ${audioTrayOpen ? "" : "-rotate-90"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+          <span>Audio<span className="max-[360px]:sr-only"> lesson</span></span>
+        </button>
+        <div id="audio-lesson-controls" className={audioTrayOpen ? "contents" : "hidden"}>
+        {selectedAudio ? <>
+            <div ref={audioPickerRef} className="relative min-w-24 max-w-72 flex-1 sm:flex-[0.5]" data-audio-picker>
+              <button
+                type="button"
+                onClick={() => setShowAudioPicker((open) => !open)}
+                aria-expanded={showAudioPicker}
+                aria-haspopup="listbox"
+                aria-label={`Choose audio lesson, current lesson: ${selectedAudio.title}`}
+                className="flex min-h-8 w-full items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2 text-left text-xs text-white/85 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#8ed9c9]"
+              >
+                <span className="min-w-0 flex-1 truncate">{selectedAudio.title}</span>
+                <svg aria-hidden="true" className="size-3 shrink-0 text-white/55" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
               {showAudioPicker && filteredAudios.length > 0 && (
                 <div
                   className="absolute bottom-full left-0 z-50 mb-2 max-h-56 w-full min-w-[min(100%,100vw-1.5rem)] max-w-[min(100%,420px)] overflow-y-auto rounded-xl border border-white/15 bg-[#0d1514] p-1.5 shadow-2xl md:w-[min(100%,360px)] md:min-w-0"
@@ -879,46 +853,37 @@ export default function SubjectWorkspacePage() {
               ref={audioRef}
               src={selectedAudio.fileUrl}
               controls
-              className="h-10 w-full min-w-0 md:max-w-[560px]"
+              className="order-last h-8 w-full min-w-0 sm:order-none sm:min-w-48 sm:flex-1"
+              aria-label="Audio lesson playback"
               onLoadedMetadata={(event) => {
-                setAudioDuration(event.currentTarget.duration || 0);
                 event.currentTarget.currentTime = audioPosition || 0;
                 event.currentTarget.playbackRate = audioRate;
               }}
               onTimeUpdate={(event) => setAudioPosition(event.currentTarget.currentTime || 0)}
             />
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-full text-[10px] font-medium uppercase tracking-wide text-white/35 md:hidden">
-                Playback speed
-              </span>
-              <div className="flex gap-1">
-                {[0.75, 1, 1.25, 1.5].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setAudioRate(value);
-                      if (audioRef.current) audioRef.current.playbackRate = value;
-                    }}
-                    className={`rounded border px-2 py-1 text-xs ${
-                      audioRate === value
-                        ? "border-[#26d9c0]/60 bg-[#26d9c0]/20 text-[#7cfce9]"
-                        : "border-white/15 bg-white/5 text-white/75"
-                    }`}
-                  >
-                    {value}x
-                  </button>
-                ))}
-              </div>
+            <div role="group" aria-label="Playback speed" className="flex shrink-0 gap-0.5 sm:gap-1">
+              {[0.75, 1, 1.25, 1.5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={audioRate === value}
+                  onClick={() => {
+                    setAudioRate(value);
+                    if (audioRef.current) audioRef.current.playbackRate = value;
+                  }}
+                  className={`min-h-7 rounded border px-1 text-[11px] tabular-nums sm:px-2 ${audioRate === value
+                    ? "border-[#26d9c0]/50 bg-[#26d9c0]/15 text-[#b9eee2]"
+                    : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"}`}
+                >
+                  {value}×
+                </button>
+              ))}
             </div>
-          </div>
-        ) : (
-          <div className="mx-auto max-w-[1200px] rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-3 py-1.5 text-center text-xs text-white/50">
-            No audio lesson for this subject yet.
-          </div>
-        )}
-      </footer>
-      </details>}
+          </> : (
+            <p className="text-xs text-white/55">No audio lesson for this subject yet.</p>
+          )}
+        </div>
+      </footer>}
       </div>
       {/* ── Videos / Mocks (below reader) ── */}
       {!audioOnlyMode && subject && (filteredVideos.length > 0 || filteredMocks.length > 0) ? (
